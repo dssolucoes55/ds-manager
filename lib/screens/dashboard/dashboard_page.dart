@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../clientes/clientes_page.dart';
 import '../ordens_servico/ordens_servico_page.dart';
+import '../orcamentos/orcamentos_page.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -286,35 +287,40 @@ class _DashboardPageState extends State<DashboardPage> {
     switch (_paginaSelecionada) {
       case 0:
         return _dashboard();
+
       case 1:
         return const ClientesPage();
+
       case 2:
         return const OrdensServicoPage();
+
       case 3:
-        return _paginaEmBreve(
-          titulo: 'Orçamentos',
-          icon: Icons.request_quote_outlined,
-        );
+        return const OrcamentosPage();
+
       case 4:
         return _paginaEmBreve(
           titulo: 'Laudos',
           icon: Icons.description_outlined,
         );
+
       case 5:
         return _paginaEmBreve(
           titulo: 'Financeiro',
           icon: Icons.account_balance_wallet_outlined,
         );
+
       case 6:
         return _paginaEmBreve(
           titulo: 'Agenda',
           icon: Icons.calendar_month_outlined,
         );
+
       case 7:
         return _paginaEmBreve(
           titulo: 'Configurações',
           icon: Icons.settings_outlined,
         );
+
       default:
         return _dashboard();
     }
@@ -363,24 +369,44 @@ class _DashboardPageState extends State<DashboardPage> {
                     valor: '12',
                     icon: Icons.assignment_outlined,
                     cor: Colors.blue,
+                    onTap: () {
+                      setState(() {
+                        _paginaSelecionada = 2;
+                      });
+                    },
                   ),
                   _cardIndicador(
                     titulo: 'Clientes',
                     valor: '152',
                     icon: Icons.people_outline,
                     cor: Colors.green,
+                    onTap: () {
+                      setState(() {
+                        _paginaSelecionada = 1;
+                      });
+                    },
                   ),
                   _cardIndicador(
                     titulo: 'Orçamentos',
                     valor: '18',
                     icon: Icons.request_quote_outlined,
                     cor: Colors.orange,
+                    onTap: () {
+                      setState(() {
+                        _paginaSelecionada = 3;
+                      });
+                    },
                   ),
                   _cardIndicador(
                     titulo: 'Laudos',
                     valor: '7',
                     icon: Icons.description_outlined,
                     cor: Colors.purple,
+                    onTap: () {
+                      setState(() {
+                        _paginaSelecionada = 4;
+                      });
+                    },
                   ),
                 ],
               );
@@ -447,6 +473,7 @@ class _DashboardPageState extends State<DashboardPage> {
     required String valor,
     required IconData icon,
     required Color cor,
+    VoidCallback? onTap,
   }) {
     return Card(
       elevation: 1,
@@ -454,46 +481,50 @@ class _DashboardPageState extends State<DashboardPage> {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Row(
-          children: [
-            Container(
-              width: 52,
-              height: 52,
-              decoration: BoxDecoration(
-                color: cor.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Row(
+            children: [
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: cor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  icon,
+                  color: cor,
+                  size: 28,
+                ),
               ),
-              child: Icon(
-                icon,
-                color: cor,
-                size: 28,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    valor,
-                    style: const TextStyle(
-                      fontSize: 27,
-                      fontWeight: FontWeight.bold,
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      valor,
+                      style: const TextStyle(
+                        fontSize: 27,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-                  Text(
-                    titulo,
-                    style: const TextStyle(
-                      color: Colors.black54,
+                    Text(
+                      titulo,
+                      style: const TextStyle(
+                        color: Colors.black54,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
