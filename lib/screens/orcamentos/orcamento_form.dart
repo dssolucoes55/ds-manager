@@ -56,6 +56,10 @@ class _OrcamentoFormState extends State<OrcamentoForm> {
       data: DateTime.now(),
       valor: valor,
       status: 'Aguardando',
+
+      // NOVOS CAMPOS
+      descricao: descricao,
+      convertidoEmOs: false,
     );
 
     OrcamentoService.adicionar(novoOrcamento);
@@ -104,7 +108,7 @@ class _OrcamentoFormState extends State<OrcamentoForm> {
               )
             else
               DropdownButtonFormField<String>(
-                initialValue: _clienteSelecionado,
+                value: _clienteSelecionado,
                 isExpanded: true,
                 decoration: const InputDecoration(
                   labelText: 'Cliente',

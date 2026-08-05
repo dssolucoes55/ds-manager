@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../dashboard/dashboard_page.dart';
 
 class LoginPage extends StatelessWidget {
@@ -7,14 +8,14 @@ class LoginPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
+      backgroundColor: const Color(0xFFF5F5F5),
       body: Center(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(24),
           child: SizedBox(
-            width: 420,
+            width: 400,
             child: Card(
-              elevation: 10,
+              elevation: 8,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
               ),
@@ -23,80 +24,69 @@ class LoginPage extends StatelessWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-
                     Image.asset(
                       'assets/images/logo.png',
-                      height: 120,
-                      errorBuilder: (context, error, stackTrace) {
-                        return const Text(
-                          "LOGO NÃO ENCONTRADA",
-                          style: TextStyle(
-                            color: Colors.red,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        );
-                      },
+                      height: 100,
+                      fit: BoxFit.contain,
                     ),
-
                     const SizedBox(height: 20),
-
                     const Text(
-                      "DS SOLUÇÕES",
+                      'DS MANAGER',
                       style: TextStyle(
-                        fontSize: 30,
+                        fontSize: 28,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-
                     const SizedBox(height: 8),
-
                     const Text(
-                      "Sistema de Ordem de Serviço",
+                      'Sistema de Gestão da DS Soluções',
+                      textAlign: TextAlign.center,
                       style: TextStyle(
                         color: Colors.grey,
                         fontSize: 16,
                       ),
                     ),
-
                     const SizedBox(height: 30),
-
                     const TextField(
+                      keyboardType: TextInputType.emailAddress,
                       decoration: InputDecoration(
-                        labelText: "E-mail",
+                        labelText: 'E-mail',
                         prefixIcon: Icon(Icons.email),
                         border: OutlineInputBorder(),
                       ),
                     ),
-
                     const SizedBox(height: 20),
-
                     const TextField(
                       obscureText: true,
                       decoration: InputDecoration(
-                        labelText: "Senha",
+                        labelText: 'Senha',
                         prefixIcon: Icon(Icons.lock),
                         border: OutlineInputBorder(),
                       ),
                     ),
-
                     const SizedBox(height: 30),
-
                     SizedBox(
                       width: double.infinity,
                       height: 50,
                       child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFE30613),
+                          foregroundColor: Colors.white,
+                        ),
                         onPressed: () {
-                          Navigator.push(
+                          Navigator.pushReplacement(
                             context,
                             MaterialPageRoute(
-                              builder: (context) =>
-                                  const DashboardPage(),
+                              builder: (_) => const DashboardPage(),
                             ),
                           );
                         },
                         child: const Text(
-                          "ENTRAR",
-                          style: TextStyle(fontSize: 18),
+                          'ENTRAR',
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ),

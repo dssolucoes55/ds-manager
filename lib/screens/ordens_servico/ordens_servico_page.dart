@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/ordem_servico.dart';
 import '../../services/ordem_servico_service.dart';
+import 'ordem_servico_detalhe.dart';
 import 'ordem_servico_form.dart';
 
 class OrdensServicoPage extends StatefulWidget {
@@ -59,8 +60,25 @@ class _OrdensServicoPageState extends State<OrdensServicoPage> {
     }
   }
 
+  Future<void> _abrirDetalhes(OrdemServico ordem) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => OrdemServicoDetalhe(
+          ordem: ordem,
+        ),
+      ),
+    );
+
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
   void _alterarStatus(OrdemServico ordem, String novoStatus) {
-    final indice = OrdemServicoService.ordens.indexOf(ordem);
+    final indice = OrdemServicoService.ordens.indexWhere(
+      (item) => item.id == ordem.id,
+    );
 
     if (indice < 0) {
       return;
@@ -71,17 +89,12 @@ class _OrdensServicoPageState extends State<OrdensServicoPage> {
     );
 
     setState(() {
-      OrdemServicoService.atualizar(
-        indice,
-        ordemAtualizada,
-      );
+      OrdemServicoService.atualizar(indice, ordemAtualizada);
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(
-          'Status alterado para $novoStatus.',
-        ),
+        content: Text('Status alterado para $novoStatus.'),
       ),
     );
   }
@@ -92,23 +105,17 @@ class _OrdensServicoPageState extends State<OrdensServicoPage> {
       builder: (context) {
         return AlertDialog(
           title: const Text('Excluir Ordem de Serviço'),
-          content: Text(
-            'Deseja realmente excluir a ${ordem.numero}?',
-          ),
+          content: Text('Deseja realmente excluir a ${ordem.numero}?'),
           actions: [
             TextButton(
-              onPressed: () {
-                Navigator.pop(context, false);
-              },
+              onPressed: () => Navigator.pop(context, false),
               child: const Text('Cancelar'),
             ),
             FilledButton(
               style: FilledButton.styleFrom(
                 backgroundColor: Colors.red,
               ),
-              onPressed: () {
-                Navigator.pop(context, true);
-              },
+              onPressed: () => Navigator.pop(context, true),
               child: const Text('Excluir'),
             ),
           ],
@@ -138,7 +145,6 @@ class _OrdensServicoPageState extends State<OrdensServicoPage> {
   String _formatarData(DateTime data) {
     final dia = data.day.toString().padLeft(2, '0');
     final mes = data.month.toString().padLeft(2, '0');
-
     return '$dia/$mes/${data.year}';
   }
 
@@ -205,7 +211,6 @@ class _OrdensServicoPageState extends State<OrdensServicoPage> {
                         tooltip: 'Limpar pesquisa',
                         onPressed: () {
                           _pesquisaController.clear();
-
                           setState(() {
                             _pesquisa = '';
                           });
@@ -234,15 +239,12 @@ class _OrdensServicoPageState extends State<OrdensServicoPage> {
                           ordem: ordem,
                           dataFormatada: _formatarData(ordem.data),
                           corStatus: _corStatus(ordem.status),
-                          corPrioridade: _corPrioridade(
-                            ordem.prioridade,
-                          ),
+                          corPrioridade: _corPrioridade(ordem.prioridade),
+                          onTap: () => _abrirDetalhes(ordem),
                           onAlterarStatus: (status) {
                             _alterarStatus(ordem, status);
                           },
-                          onExcluir: () {
-                            _excluirOrdem(ordem);
-                          },
+                          onExcluir: () => _excluirOrdem(ordem),
                         );
                       },
                     ),
@@ -305,6 +307,7 @@ class _OrdemServicoCard extends StatelessWidget {
   final String dataFormatada;
   final Color corStatus;
   final Color corPrioridade;
+  final VoidCallback onTap;
   final ValueChanged<String> onAlterarStatus;
   final VoidCallback onExcluir;
 
@@ -313,6 +316,7 @@ class _OrdemServicoCard extends StatelessWidget {
     required this.dataFormatada,
     required this.corStatus,
     required this.corPrioridade,
+    required this.onTap,
     required this.onAlterarStatus,
     required this.onExcluir,
   });
@@ -325,164 +329,182 @@ class _OrdemServicoCard extends StatelessWidget {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const CircleAvatar(
-              backgroundColor: Color(0xFFE30613),
-              foregroundColor: Colors.white,
-              child: Icon(Icons.assignment),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    ordem.numero,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    ordem.clienteNome,
-                    style: const TextStyle(
-                      fontSize: 16,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    ordem.descricao,
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.black87,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      Chip(
-                        backgroundColor: corStatus.withValues(
-                          alpha: 0.12,
-                        ),
-                        label: Text(
-                          ordem.status,
-                          style: TextStyle(
-                            color: corStatus,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const CircleAvatar(
+                backgroundColor: Color(0xFFE30613),
+                foregroundColor: Colors.white,
+                child: Icon(Icons.assignment),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      ordem.numero,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
                       ),
-                      Chip(
-                        backgroundColor: corPrioridade.withValues(
-                          alpha: 0.12,
-                        ),
-                        avatar: Icon(
-                          Icons.priority_high,
-                          size: 18,
-                          color: corPrioridade,
-                        ),
-                        label: Text(
-                          ordem.prioridade,
-                          style: TextStyle(
-                            color: corPrioridade,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                      Chip(
-                        avatar: const Icon(
-                          Icons.calendar_today,
-                          size: 18,
-                        ),
-                        label: Text(dataFormatada),
-                      ),
-                      if (ordem.tecnico.isNotEmpty)
-                        Chip(
-                          avatar: const Icon(
-                            Icons.engineering,
-                            size: 18,
-                          ),
-                          label: Text(ordem.tecnico),
-                        ),
-                    ],
-                  ),
-                  if (ordem.observacoes.isNotEmpty) ...[
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      ordem.clienteNome,
+                      style: const TextStyle(fontSize: 16),
+                    ),
                     const SizedBox(height: 10),
                     Text(
-                      'Observações: ${ordem.observacoes}',
+                      ordem.descricao,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        color: Colors.black54,
-                        fontStyle: FontStyle.italic,
+                        color: Colors.black87,
                       ),
                     ),
-                  ],
-                ],
-              ),
-            ),
-            PopupMenuButton<String>(
-              onSelected: (opcao) {
-                switch (opcao) {
-                  case 'aberta':
-                    onAlterarStatus('Aberta');
-                    break;
-                  case 'andamento':
-                    onAlterarStatus('Em andamento');
-                    break;
-                  case 'concluida':
-                    onAlterarStatus('Concluída');
-                    break;
-                  case 'cancelada':
-                    onAlterarStatus('Cancelada');
-                    break;
-                  case 'excluir':
-                    onExcluir();
-                    break;
-                }
-              },
-              itemBuilder: (context) {
-                return const [
-                  PopupMenuItem(
-                    value: 'aberta',
-                    child: Text('Marcar como aberta'),
-                  ),
-                  PopupMenuItem(
-                    value: 'andamento',
-                    child: Text('Marcar em andamento'),
-                  ),
-                  PopupMenuItem(
-                    value: 'concluida',
-                    child: Text('Marcar como concluída'),
-                  ),
-                  PopupMenuItem(
-                    value: 'cancelada',
-                    child: Text('Marcar como cancelada'),
-                  ),
-                  PopupMenuDivider(),
-                  PopupMenuItem(
-                    value: 'excluir',
-                    child: Row(
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
                       children: [
-                        Icon(
-                          Icons.delete_outline,
-                          color: Colors.red,
+                        Chip(
+                          backgroundColor: corStatus.withValues(alpha: 0.12),
+                          label: Text(
+                            ordem.status,
+                            style: TextStyle(
+                              color: corStatus,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
-                        SizedBox(width: 10),
-                        Text('Excluir'),
+                        Chip(
+                          backgroundColor:
+                              corPrioridade.withValues(alpha: 0.12),
+                          avatar: Icon(
+                            Icons.priority_high,
+                            size: 18,
+                            color: corPrioridade,
+                          ),
+                          label: Text(
+                            ordem.prioridade,
+                            style: TextStyle(
+                              color: corPrioridade,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        Chip(
+                          avatar: const Icon(
+                            Icons.calendar_today,
+                            size: 18,
+                          ),
+                          label: Text(dataFormatada),
+                        ),
+                        if (ordem.tecnico.isNotEmpty)
+                          Chip(
+                            avatar: const Icon(
+                              Icons.engineering,
+                              size: 18,
+                            ),
+                            label: Text(ordem.tecnico),
+                          ),
                       ],
                     ),
-                  ),
-                ];
-              },
-            ),
-          ],
+                    if (ordem.observacoes.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      Text(
+                        'Observações: ${ordem.observacoes}',
+                        style: const TextStyle(
+                          color: Colors.black54,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 8),
+                    const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.touch_app_outlined,
+                          size: 17,
+                          color: Colors.black45,
+                        ),
+                        SizedBox(width: 5),
+                        Text(
+                          'Clique para visualizar os detalhes',
+                          style: TextStyle(
+                            color: Colors.black45,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              PopupMenuButton<String>(
+                onSelected: (opcao) {
+                  switch (opcao) {
+                    case 'aberta':
+                      onAlterarStatus('Aberta');
+                      break;
+                    case 'andamento':
+                      onAlterarStatus('Em andamento');
+                      break;
+                    case 'concluida':
+                      onAlterarStatus('Concluída');
+                      break;
+                    case 'cancelada':
+                      onAlterarStatus('Cancelada');
+                      break;
+                    case 'excluir':
+                      onExcluir();
+                      break;
+                  }
+                },
+                itemBuilder: (context) {
+                  return const [
+                    PopupMenuItem(
+                      value: 'aberta',
+                      child: Text('Marcar como aberta'),
+                    ),
+                    PopupMenuItem(
+                      value: 'andamento',
+                      child: Text('Marcar em andamento'),
+                    ),
+                    PopupMenuItem(
+                      value: 'concluida',
+                      child: Text('Marcar como concluída'),
+                    ),
+                    PopupMenuItem(
+                      value: 'cancelada',
+                      child: Text('Marcar como cancelada'),
+                    ),
+                    PopupMenuDivider(),
+                    PopupMenuItem(
+                      value: 'excluir',
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.delete_outline,
+                            color: Colors.red,
+                          ),
+                          SizedBox(width: 10),
+                          Text('Excluir'),
+                        ],
+                      ),
+                    ),
+                  ];
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );

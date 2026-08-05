@@ -295,7 +295,7 @@ class _DashboardPageState extends State<DashboardPage> {
         return const OrdensServicoPage();
 
       case 3:
-        return const OrcamentosPage();
+  return const OrcamentosPage();
 
       case 4:
         return _paginaEmBreve(
