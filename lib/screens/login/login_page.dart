@@ -26,12 +26,12 @@ class LoginPage extends StatelessWidget {
                   children: [
                     Image.asset(
                       'assets/images/logo.png',
-                      height: 100,
+                      height: 250,
                       fit: BoxFit.contain,
                     ),
                     const SizedBox(height: 20),
                     const Text(
-                      'DS MANAGER',
+                      'DS SOLUÇOES',
                       style: TextStyle(
                         fontSize: 28,
                         fontWeight: FontWeight.bold,
@@ -39,14 +39,14 @@ class LoginPage extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      'Sistema de Gestão da DS Soluções',
+                      'Sistema de Gestão',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: Colors.grey,
                         fontSize: 16,
                       ),
                     ),
-                    const SizedBox(height: 30),
+                    const SizedBox(height: 20),
                     const TextField(
                       keyboardType: TextInputType.emailAddress,
                       decoration: InputDecoration(

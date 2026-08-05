@@ -1,4 +1,7 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:printing/printing.dart';
 
 import '../../models/ordem_servico.dart';
@@ -20,6 +23,7 @@ class OrdemServicoDetalhe extends StatefulWidget {
 class _OrdemServicoDetalheState extends State<OrdemServicoDetalhe> {
   late OrdemServico _ordem;
   bool _gerandoPdf = false;
+  final ImagePicker _imagePicker = ImagePicker();
 
   @override
   void initState() {
@@ -63,7 +67,6 @@ class _OrdemServicoDetalheState extends State<OrdemServicoDetalhe> {
     final indice = OrdemServicoService.ordens.indexWhere(
       (ordem) => ordem.id == _ordem.id,
     );
-
     if (indice < 0) return;
 
     final ordemAtualizada = _ordem.copyWith(status: novoStatus);
@@ -87,14 +90,12 @@ class _OrdemServicoDetalheState extends State<OrdemServicoDetalhe> {
 
     try {
       final arquivo = await PdfService.gerarOrdemServico(_ordem);
-
       await Printing.layoutPdf(
         name: '${_ordem.numero}.pdf',
         onLayout: (_) async => arquivo,
       );
     } catch (erro) {
       if (!mounted) return;
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Não foi possível gerar o PDF: $erro'),
@@ -107,6 +108,80 @@ class _OrdemServicoDetalheState extends State<OrdemServicoDetalhe> {
         });
       }
     }
+  }
+
+  Future<void> _adicionarFoto({required bool antes}) async {
+    try {
+      final XFile? imagem = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 80,
+        maxWidth: 1600,
+      );
+
+      if (imagem == null) return;
+
+      final Uint8List bytes = await imagem.readAsBytes();
+      final fotosAntes = List<Uint8List>.from(_ordem.fotosAntes);
+      final fotosDepois = List<Uint8List>.from(_ordem.fotosDepois);
+
+      if (antes) {
+        fotosAntes.add(bytes);
+      } else {
+        fotosDepois.add(bytes);
+      }
+
+      _atualizarFotos(
+        fotosAntes: fotosAntes,
+        fotosDepois: fotosDepois,
+      );
+    } catch (erro) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Não foi possível adicionar a foto: $erro'),
+        ),
+      );
+    }
+  }
+
+  void _removerFoto({
+    required bool antes,
+    required int indiceFoto,
+  }) {
+    final fotosAntes = List<Uint8List>.from(_ordem.fotosAntes);
+    final fotosDepois = List<Uint8List>.from(_ordem.fotosDepois);
+
+    if (antes) {
+      fotosAntes.removeAt(indiceFoto);
+    } else {
+      fotosDepois.removeAt(indiceFoto);
+    }
+
+    _atualizarFotos(
+      fotosAntes: fotosAntes,
+      fotosDepois: fotosDepois,
+    );
+  }
+
+  void _atualizarFotos({
+    required List<Uint8List> fotosAntes,
+    required List<Uint8List> fotosDepois,
+  }) {
+    final indiceOrdem = OrdemServicoService.ordens.indexWhere(
+      (ordem) => ordem.id == _ordem.id,
+    );
+    if (indiceOrdem < 0) return;
+
+    final ordemAtualizada = _ordem.copyWith(
+      fotosAntes: fotosAntes,
+      fotosDepois: fotosDepois,
+    );
+
+    OrdemServicoService.atualizar(indiceOrdem, ordemAtualizada);
+
+    setState(() {
+      _ordem = ordemAtualizada;
+    });
   }
 
   @override
@@ -129,10 +204,7 @@ class _OrdemServicoDetalheState extends State<OrdemServicoDetalhe> {
           PopupMenuButton<String>(
             onSelected: _alterarStatus,
             itemBuilder: (context) => const [
-              PopupMenuItem(
-                value: 'Aberta',
-                child: Text('Marcar como aberta'),
-              ),
+              PopupMenuItem(value: 'Aberta', child: Text('Marcar como aberta')),
               PopupMenuItem(
                 value: 'Em andamento',
                 child: Text('Marcar em andamento'),
@@ -207,7 +279,8 @@ class _OrdemServicoDetalheState extends State<OrdemServicoDetalhe> {
                           runSpacing: 10,
                           children: [
                             Chip(
-                              backgroundColor: corStatus.withValues(alpha: 0.12),
+                              backgroundColor:
+                                  corStatus.withValues(alpha: 0.12),
                               label: Text(
                                 _ordem.status,
                                 style: TextStyle(
@@ -266,6 +339,8 @@ class _OrdemServicoDetalheState extends State<OrdemServicoDetalhe> {
                       ? 'Nenhuma observação registrada.'
                       : _ordem.observacoes,
                 ),
+                const SizedBox(height: 18),
+                _cardFotos(),
                 if (_ordem.orcamentoId != null) ...[
                   const SizedBox(height: 18),
                   _secao(
@@ -317,6 +392,138 @@ class _OrdemServicoDetalheState extends State<OrdemServicoDetalhe> {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _cardFotos() {
+    return Card(
+      elevation: 1,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(
+                  Icons.photo_library,
+                  color: Color(0xFFE30613),
+                ),
+                SizedBox(width: 10),
+                Text(
+                  'Fotos do Serviço',
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            FilledButton.icon(
+              onPressed: () => _adicionarFoto(antes: true),
+              icon: const Icon(Icons.add_a_photo),
+              label: const Text('Adicionar foto ANTES'),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              '${_ordem.fotosAntes.length} foto(s)',
+              style: const TextStyle(color: Colors.grey),
+            ),
+            _listaFotos(
+              fotos: _ordem.fotosAntes,
+              antes: true,
+            ),
+            const Divider(height: 35),
+            FilledButton.icon(
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.green,
+              ),
+              onPressed: () => _adicionarFoto(antes: false),
+              icon: const Icon(Icons.add_a_photo),
+              label: const Text('Adicionar foto DEPOIS'),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              '${_ordem.fotosDepois.length} foto(s)',
+              style: const TextStyle(color: Colors.grey),
+            ),
+            _listaFotos(
+              fotos: _ordem.fotosDepois,
+              antes: false,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _listaFotos({
+    required List<Uint8List> fotos,
+    required bool antes,
+  }) {
+    if (fotos.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.only(top: 10),
+        child: Text(
+          'Nenhuma foto adicionada.',
+          style: TextStyle(color: Colors.black45),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Wrap(
+        spacing: 10,
+        runSpacing: 10,
+        children: List.generate(
+          fotos.length,
+          (index) {
+            return Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Image.memory(
+                    fotos[index],
+                    width: 130,
+                    height: 100,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                Positioned(
+                  top: 4,
+                  right: 4,
+                  child: Material(
+                    color: Colors.black54,
+                    shape: const CircleBorder(),
+                    child: InkWell(
+                      customBorder: const CircleBorder(),
+                      onTap: () {
+                        _removerFoto(
+                          antes: antes,
+                          indiceFoto: index,
+                        );
+                      },
+                      child: const Padding(
+                        padding: EdgeInsets.all(5),
+                        child: Icon(
+                          Icons.close,
+                          size: 17,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
         ),
       ),
     );

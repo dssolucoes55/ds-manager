@@ -10,20 +10,20 @@ class ClientesPage extends StatefulWidget {
 class _ClientesPageState extends State<ClientesPage> {
   final TextEditingController _pesquisaController = TextEditingController();
 
-  final List<Cliente> _clientes = [
-    Cliente(
+  final List<ClienteLocal> _clientes = [
+    ClienteLocal(
       nome: 'Condomínio Leonardo da Vinci',
       responsavel: 'Administração',
       telefone: '(85) 99999-9999',
       email: 'administracao@condominio.com',
     ),
-    Cliente(
+    ClienteLocal(
       nome: 'Shopping Central',
       responsavel: 'Setor de Manutenção',
       telefone: '(85) 98888-8888',
       email: 'manutencao@shopping.com',
     ),
-    Cliente(
+    ClienteLocal(
       nome: 'Empresa ABC',
       responsavel: 'Carlos',
       telefone: '(85) 97777-7777',
@@ -33,7 +33,7 @@ class _ClientesPageState extends State<ClientesPage> {
 
   String _pesquisa = '';
 
-  List<Cliente> get _clientesFiltrados {
+  List<ClienteLocal> get _clientesFiltrados {
     if (_pesquisa.trim().isEmpty) {
       return _clientes;
     }
@@ -54,120 +54,17 @@ class _ClientesPageState extends State<ClientesPage> {
     super.dispose();
   }
 
-  Future<void> _abrirFormulario({Cliente? cliente, int? indice}) async {
-    final nomeController = TextEditingController(text: cliente?.nome ?? '');
-    final responsavelController = TextEditingController(
-      text: cliente?.responsavel ?? '',
-    );
-    final telefoneController = TextEditingController(
-      text: cliente?.telefone ?? '',
-    );
-    final emailController = TextEditingController(text: cliente?.email ?? '');
-
-    final formKey = GlobalKey<FormState>();
-
-    final resultado = await showDialog<Cliente>(
+  Future<void> _abrirFormulario({
+    ClienteLocal? cliente,
+    int? indice,
+  }) async {
+    final resultado = await showDialog<ClienteLocal>(
       context: context,
       barrierDismissible: false,
-      builder: (context) {
-        return AlertDialog(
-          title: Text(
-            cliente == null ? 'Novo cliente' : 'Editar cliente',
-          ),
-          content: SizedBox(
-            width: 500,
-            child: SingleChildScrollView(
-              child: Form(
-                key: formKey,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextFormField(
-                      controller: nomeController,
-                      decoration: const InputDecoration(
-                        labelText: 'Nome, empresa ou condomínio',
-                        prefixIcon: Icon(Icons.business),
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (valor) {
-                        if (valor == null || valor.trim().isEmpty) {
-                          return 'Informe o nome do cliente.';
-                        }
-
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: responsavelController,
-                      decoration: const InputDecoration(
-                        labelText: 'Responsável',
-                        prefixIcon: Icon(Icons.person),
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: telefoneController,
-                      keyboardType: TextInputType.phone,
-                      decoration: const InputDecoration(
-                        labelText: 'Telefone ou WhatsApp',
-                        prefixIcon: Icon(Icons.phone),
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: emailController,
-                      keyboardType: TextInputType.emailAddress,
-                      decoration: const InputDecoration(
-                        labelText: 'E-mail',
-                        prefixIcon: Icon(Icons.email),
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-              },
-              child: const Text('Cancelar'),
-            ),
-            FilledButton.icon(
-              onPressed: () {
-                if (!formKey.currentState!.validate()) {
-                  return;
-                }
-
-                Navigator.pop(
-                  context,
-                  Cliente(
-                    nome: nomeController.text.trim(),
-                    responsavel: responsavelController.text.trim(),
-                    telefone: telefoneController.text.trim(),
-                    email: emailController.text.trim(),
-                  ),
-                );
-              },
-              icon: const Icon(Icons.save),
-              label: const Text('Salvar'),
-            ),
-          ],
-        );
-      },
+      builder: (_) => _ClienteFormDialog(cliente: cliente),
     );
 
-    nomeController.dispose();
-    responsavelController.dispose();
-    telefoneController.dispose();
-    emailController.dispose();
-
-    if (resultado == null) {
+    if (!mounted || resultado == null) {
       return;
     }
 
@@ -178,10 +75,6 @@ class _ClientesPageState extends State<ClientesPage> {
         _clientes[indice] = resultado;
       }
     });
-
-    if (!mounted) {
-      return;
-    }
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -194,10 +87,10 @@ class _ClientesPageState extends State<ClientesPage> {
     );
   }
 
-  Future<void> _excluirCliente(Cliente cliente) async {
+  Future<void> _excluirCliente(ClienteLocal cliente) async {
     final confirmar = await showDialog<bool>(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
         return AlertDialog(
           title: const Text('Excluir cliente'),
           content: Text(
@@ -206,7 +99,7 @@ class _ClientesPageState extends State<ClientesPage> {
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.pop(context, false);
+                Navigator.of(dialogContext).pop(false);
               },
               child: const Text('Cancelar'),
             ),
@@ -215,7 +108,7 @@ class _ClientesPageState extends State<ClientesPage> {
                 backgroundColor: Colors.red,
               ),
               onPressed: () {
-                Navigator.pop(context, true);
+                Navigator.of(dialogContext).pop(true);
               },
               child: const Text('Excluir'),
             ),
@@ -224,17 +117,13 @@ class _ClientesPageState extends State<ClientesPage> {
       },
     );
 
-    if (confirmar != true) {
+    if (!mounted || confirmar != true) {
       return;
     }
 
     setState(() {
       _clientes.remove(cliente);
     });
-
-    if (!mounted) {
-      return;
-    }
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -257,9 +146,7 @@ class _ClientesPageState extends State<ClientesPage> {
       floatingActionButton: FloatingActionButton.extended(
         backgroundColor: const Color(0xFFE30613),
         foregroundColor: Colors.white,
-        onPressed: () {
-          _abrirFormulario();
-        },
+        onPressed: _abrirFormulario,
         icon: const Icon(Icons.add),
         label: const Text('Novo cliente'),
       ),
@@ -282,7 +169,6 @@ class _ClientesPageState extends State<ClientesPage> {
                         tooltip: 'Limpar pesquisa',
                         onPressed: () {
                           _pesquisaController.clear();
-
                           setState(() {
                             _pesquisa = '';
                           });
@@ -338,13 +224,13 @@ class _ClientesPageState extends State<ClientesPage> {
   }
 }
 
-class Cliente {
+class ClienteLocal {
   final String nome;
   final String responsavel;
   final String telefone;
   final String email;
 
-  Cliente({
+  const ClienteLocal({
     required this.nome,
     required this.responsavel,
     required this.telefone,
@@ -352,8 +238,148 @@ class Cliente {
   });
 }
 
+class _ClienteFormDialog extends StatefulWidget {
+  final ClienteLocal? cliente;
+
+  const _ClienteFormDialog({
+    this.cliente,
+  });
+
+  @override
+  State<_ClienteFormDialog> createState() => _ClienteFormDialogState();
+}
+
+class _ClienteFormDialogState extends State<_ClienteFormDialog> {
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+
+  late final TextEditingController _nomeController;
+  late final TextEditingController _responsavelController;
+  late final TextEditingController _telefoneController;
+  late final TextEditingController _emailController;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _nomeController = TextEditingController(
+      text: widget.cliente?.nome ?? '',
+    );
+    _responsavelController = TextEditingController(
+      text: widget.cliente?.responsavel ?? '',
+    );
+    _telefoneController = TextEditingController(
+      text: widget.cliente?.telefone ?? '',
+    );
+    _emailController = TextEditingController(
+      text: widget.cliente?.email ?? '',
+    );
+  }
+
+  @override
+  void dispose() {
+    _nomeController.dispose();
+    _responsavelController.dispose();
+    _telefoneController.dispose();
+    _emailController.dispose();
+    super.dispose();
+  }
+
+  void _salvar() {
+    if (!(_formKey.currentState?.validate() ?? false)) {
+      return;
+    }
+
+    Navigator.of(context).pop(
+      ClienteLocal(
+        nome: _nomeController.text.trim(),
+        responsavel: _responsavelController.text.trim(),
+        telefone: _telefoneController.text.trim(),
+        email: _emailController.text.trim(),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(
+        widget.cliente == null ? 'Novo cliente' : 'Editar cliente',
+      ),
+      content: SizedBox(
+        width: 500,
+        child: SingleChildScrollView(
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: _nomeController,
+                  decoration: const InputDecoration(
+                    labelText: 'Nome, empresa ou condomínio',
+                    prefixIcon: Icon(Icons.business),
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (valor) {
+                    if (valor == null || valor.trim().isEmpty) {
+                      return 'Informe o nome do cliente.';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _responsavelController,
+                  decoration: const InputDecoration(
+                    labelText: 'Responsável',
+                    prefixIcon: Icon(Icons.person),
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _telefoneController,
+                  keyboardType: TextInputType.phone,
+                  decoration: const InputDecoration(
+                    labelText: 'Telefone ou WhatsApp',
+                    prefixIcon: Icon(Icons.phone),
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: const InputDecoration(
+                    labelText: 'E-mail',
+                    prefixIcon: Icon(Icons.email),
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () {
+            Navigator.of(context).pop();
+          },
+          child: const Text('Cancelar'),
+        ),
+        FilledButton.icon(
+          onPressed: _salvar,
+          icon: const Icon(Icons.save),
+          label: const Text('Salvar'),
+        ),
+      ],
+    );
+  }
+}
+
 class _ClienteCard extends StatelessWidget {
-  final Cliente cliente;
+  final ClienteLocal cliente;
   final VoidCallback onEditar;
   final VoidCallback onExcluir;
 
@@ -393,9 +419,7 @@ class _ClienteCard extends StatelessWidget {
           onSelected: (opcao) {
             if (opcao == 'editar') {
               onEditar();
-            }
-
-            if (opcao == 'excluir') {
+            } else if (opcao == 'excluir') {
               onExcluir();
             }
           },
@@ -415,7 +439,10 @@ class _ClienteCard extends StatelessWidget {
                 value: 'excluir',
                 child: Row(
                   children: [
-                    Icon(Icons.delete, color: Colors.red),
+                    Icon(
+                      Icons.delete,
+                      color: Colors.red,
+                    ),
                     SizedBox(width: 10),
                     Text('Excluir'),
                   ],

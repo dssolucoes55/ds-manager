@@ -81,7 +81,7 @@ class _DashboardPageState extends State<DashboardPage> {
   Widget _menuLateral({bool contraido = false}) {
     return Container(
       width: contraido ? double.infinity : 260,
-      color: const Color(0xFF181818),
+      color: const Color(0xFFF5F5F5),
       child: Column(
         children: [
           const SizedBox(height: 20),
@@ -89,15 +89,15 @@ class _DashboardPageState extends State<DashboardPage> {
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Image.asset(
               'assets/images/logo.png',
-              height: 80,
+              height: 200,
               fit: BoxFit.contain,
             ),
           ),
           const SizedBox(height: 10),
           const Text(
-            'DS MANAGER',
+            'DS SOLUÇÕES',
             style: TextStyle(
-              color: Colors.white,
+              color: Color.fromARGB(255, 5, 5, 5),
               fontSize: 21,
               fontWeight: FontWeight.bold,
               letterSpacing: 1.2,
@@ -105,12 +105,12 @@ class _DashboardPageState extends State<DashboardPage> {
           ),
           const SizedBox(height: 4),
           const Text(
-            'Sistema de Gestão',
-            style: TextStyle(
-              color: Colors.white70,
-              fontSize: 13,
-            ),
-          ),
+          'Sistema de Gestão',
+           style: TextStyle(
+           color: Color(0xFF666666),
+           fontSize: 21,
+         ),
+       ),
           const SizedBox(height: 24),
           Expanded(
             child: ListView(
@@ -176,15 +176,15 @@ class _DashboardPageState extends State<DashboardPage> {
                     children: [
                       Text(
                         'Douglas',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: const TextStyle(
+                       color: Color(0xFF222222),
+                       fontWeight: FontWeight.bold,
+                    ),
                       ),
                       Text(
                         'Administrador',
                         style: TextStyle(
-                          color: Colors.white60,
+                          color:Color(0xFF666666),
                           fontSize: 12,
                         ),
                       ),
@@ -218,18 +218,23 @@ class _DashboardPageState extends State<DashboardPage> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
           ),
-          leading: Icon(
-            icon,
-            color: selecionado ? Colors.white : Colors.white70,
-          ),
-          title: Text(
-            titulo,
-            style: TextStyle(
-              color: selecionado ? Colors.white : Colors.white70,
-              fontWeight:
-                  selecionado ? FontWeight.bold : FontWeight.normal,
-            ),
-          ),
+         leading: Icon(
+           icon,
+           color: selecionado
+               ? Colors.white
+               : const Color(0xFF444444),
+),
+title: Text(
+  titulo,
+  style: TextStyle(
+    color: selecionado
+        ? Colors.white
+        : const Color(0xFF444444),
+    fontWeight: selecionado
+        ? FontWeight.bold
+        : FontWeight.w500,
+  ),
+),
           onTap: () {
             setState(() {
               _paginaSelecionada = indice;

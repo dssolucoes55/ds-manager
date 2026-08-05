@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 class OrdemServico {
   final String id;
   final String numero;
@@ -6,10 +8,12 @@ class OrdemServico {
   final String tecnico;
   final String descricao;
   final String prioridade;
-  String status;
+  final String status;
   final DateTime data;
   final String observacoes;
   final String? orcamentoId;
+  final List<Uint8List> fotosAntes;
+  final List<Uint8List> fotosDepois;
 
   OrdemServico({
     required this.id,
@@ -23,6 +27,8 @@ class OrdemServico {
     required this.data,
     this.observacoes = '',
     this.orcamentoId,
+    this.fotosAntes = const [],
+    this.fotosDepois = const [],
   });
 
   OrdemServico copyWith({
@@ -37,6 +43,8 @@ class OrdemServico {
     DateTime? data,
     String? observacoes,
     String? orcamentoId,
+    List<Uint8List>? fotosAntes,
+    List<Uint8List>? fotosDepois,
   }) {
     return OrdemServico(
       id: id ?? this.id,
@@ -50,6 +58,8 @@ class OrdemServico {
       data: data ?? this.data,
       observacoes: observacoes ?? this.observacoes,
       orcamentoId: orcamentoId ?? this.orcamentoId,
+      fotosAntes: fotosAntes ?? List<Uint8List>.from(this.fotosAntes),
+      fotosDepois: fotosDepois ?? List<Uint8List>.from(this.fotosDepois),
     );
   }
 }
