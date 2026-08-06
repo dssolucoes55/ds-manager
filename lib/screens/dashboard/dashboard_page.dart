@@ -4,6 +4,10 @@ import '../clientes/clientes_page.dart';
 import '../ordens_servico/ordens_servico_page.dart';
 import '../orcamentos/orcamentos_page.dart';
 
+import '../../services/cliente_service.dart';
+import '../../services/ordem_servico_service.dart';
+import '../../services/orcamento_service.dart';
+
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
 
@@ -24,6 +28,13 @@ class _DashboardPageState extends State<DashboardPage> {
     'Agenda',
     'Configurações',
   ];
+   int get _totalClientes => ClienteService.clientes.length;
+
+   int get _totalOrdens => OrdemServicoService.ordens.length;
+
+   int get _totalOrcamentos => OrcamentoService.orcamentos.length;
+
+   int get _totalLaudos => 0;
 
   @override
   Widget build(BuildContext context) {
@@ -294,13 +305,13 @@ title: Text(
         return _dashboard();
 
       case 1:
-        return const ClientesPage();
+        return ClientesPage();
 
       case 2:
-        return const OrdensServicoPage();
+        return OrdensServicoPage();
 
       case 3:
-  return const OrcamentosPage();
+        return OrcamentosPage();
 
       case 4:
         return _paginaEmBreve(
@@ -371,7 +382,7 @@ title: Text(
                 children: [
                   _cardIndicador(
                     titulo: 'OS em aberto',
-                    valor: '12',
+                    valor: _totalOrdens.toString(),
                     icon: Icons.assignment_outlined,
                     cor: Colors.blue,
                     onTap: () {
@@ -382,7 +393,7 @@ title: Text(
                   ),
                   _cardIndicador(
                     titulo: 'Clientes',
-                    valor: '152',
+                    valor: _totalClientes.toString(),
                     icon: Icons.people_outline,
                     cor: Colors.green,
                     onTap: () {
@@ -393,7 +404,7 @@ title: Text(
                   ),
                   _cardIndicador(
                     titulo: 'Orçamentos',
-                    valor: '18',
+                    valor: _totalOrcamentos.toString(),
                     icon: Icons.request_quote_outlined,
                     cor: Colors.orange,
                     onTap: () {
@@ -404,7 +415,7 @@ title: Text(
                   ),
                   _cardIndicador(
                     titulo: 'Laudos',
-                    valor: '7',
+                    valor: _totalLaudos.toString(),
                     icon: Icons.description_outlined,
                     cor: Colors.purple,
                     onTap: () {

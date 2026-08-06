@@ -10,7 +10,7 @@ class Cliente {
   final String endereco;
   final String observacoes;
 
-  Cliente({
+  const Cliente({
     required this.id,
     required this.nome,
     this.tipo = '',
@@ -46,6 +46,38 @@ class Cliente {
       email: email ?? this.email,
       endereco: endereco ?? this.endereco,
       observacoes: observacoes ?? this.observacoes,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'nome': nome,
+      'tipo': tipo,
+      'documento': documento,
+      'responsavel': responsavel,
+      'telefone': telefone,
+      'whatsapp': whatsapp,
+      'email': email,
+      'endereco': endereco,
+      'observacoes': observacoes,
+    };
+  }
+
+  factory Cliente.fromMap(
+    String id,
+    Map<String, dynamic> map,
+  ) {
+    return Cliente(
+      id: id,
+      nome: map['nome']?.toString() ?? '',
+      tipo: map['tipo']?.toString() ?? '',
+      documento: map['documento']?.toString() ?? '',
+      responsavel: map['responsavel']?.toString() ?? '',
+      telefone: map['telefone']?.toString() ?? '',
+      whatsapp: map['whatsapp']?.toString() ?? '',
+      email: map['email']?.toString() ?? '',
+      endereco: map['endereco']?.toString() ?? '',
+      observacoes: map['observacoes']?.toString() ?? '',
     );
   }
 }

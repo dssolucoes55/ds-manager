@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "321468437653",
+    "project_id": "ds-solucoes-67319",
+    "storage_bucket": "ds-solucoes-67319.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:321468437653:android:21d6686d1cbc9a07efb79c",
+        "android_client_info": {
+          "package_name": "com.example.ds_solucoes"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBOMVxLNzhPlIbChzeVNy2DgLrG9KcCHHk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
