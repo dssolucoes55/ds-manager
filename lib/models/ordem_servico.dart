@@ -12,6 +12,7 @@ class OrdemServico {
   final DateTime data;
   final String observacoes;
   final String? orcamentoId;
+
   final List<Uint8List> fotosAntes;
   final List<Uint8List> fotosDepois;
 
@@ -60,6 +61,47 @@ class OrdemServico {
       orcamentoId: orcamentoId ?? this.orcamentoId,
       fotosAntes: fotosAntes ?? List<Uint8List>.from(this.fotosAntes),
       fotosDepois: fotosDepois ?? List<Uint8List>.from(this.fotosDepois),
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'numero': numero,
+      'clienteId': clienteId,
+      'clienteNome': clienteNome,
+      'tecnico': tecnico,
+      'descricao': descricao,
+      'prioridade': prioridade,
+      'status': status,
+      'data': data.millisecondsSinceEpoch,
+      'observacoes': observacoes,
+      'orcamentoId': orcamentoId,
+    };
+  }
+
+  factory OrdemServico.fromMap(
+    String id,
+    Map<String, dynamic> map,
+  ) {
+    return OrdemServico(
+      id: id,
+      numero: map['numero']?.toString() ?? '',
+      clienteId: map['clienteId']?.toString() ?? '',
+      clienteNome: map['clienteNome']?.toString() ?? '',
+      tecnico: map['tecnico']?.toString() ?? '',
+      descricao: map['descricao']?.toString() ?? '',
+      prioridade: map['prioridade']?.toString() ?? 'Normal',
+      status: map['status']?.toString() ?? 'Aberta',
+      data: DateTime.fromMillisecondsSinceEpoch(
+        map['data'] is int
+            ? map['data'] as int
+            : int.tryParse(map['data']?.toString() ?? '') ??
+                DateTime.now().millisecondsSinceEpoch,
+      ),
+      observacoes: map['observacoes']?.toString() ?? '',
+      orcamentoId: map['orcamentoId']?.toString(),
+      fotosAntes: const [],
+      fotosDepois: const [],
     );
   }
 }

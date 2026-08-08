@@ -15,6 +15,8 @@ class OrcamentosPage extends StatefulWidget {
 }
 
 class _OrcamentosPageState extends State<OrcamentosPage> {
+  bool _gerandoOs = false;
+
   Future<void> _abrirFormulario() async {
     final salvou = await Navigator.push<bool>(
       context,
@@ -28,27 +30,40 @@ class _OrcamentosPageState extends State<OrcamentosPage> {
     }
   }
 
-  void _alterarStatus(Orcamento orcamento, String novoStatus) {
-    final indice = OrcamentoService.orcamentos.indexOf(orcamento);
+  void _alterarStatus(
+    Orcamento orcamento,
+    String novoStatus,
+  ) {
+    final indice =
+        OrcamentoService.orcamentos.indexOf(orcamento);
 
     if (indice < 0) {
       return;
     }
 
     setState(() {
-      OrcamentoService.orcamentos[indice] = orcamento.copyWith(
+      OrcamentoService.orcamentos[indice] =
+          orcamento.copyWith(
         status: novoStatus,
       );
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Orçamento marcado como $novoStatus.'),
+        content: Text(
+          'Orçamento marcado como $novoStatus.',
+        ),
       ),
     );
   }
 
-  void _gerarOrdemServico(Orcamento orcamento) {
+  Future<void> _gerarOrdemServico(
+    Orcamento orcamento,
+  ) async {
+    if (_gerandoOs) {
+      return;
+    }
+
     if (orcamento.status.toLowerCase() != 'aprovado') {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -61,7 +76,9 @@ class _OrcamentosPageState extends State<OrcamentosPage> {
     }
 
     if (orcamento.convertidoEmOs ||
-        OrdemServicoService.existeOrdemDoOrcamento(orcamento.id)) {
+        OrdemServicoService.existeOrdemDoOrcamento(
+          orcamento.id,
+        )) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
@@ -72,7 +89,8 @@ class _OrcamentosPageState extends State<OrcamentosPage> {
       return;
     }
 
-    final clientesEncontrados = ClienteService.clientes.where(
+    final clientesEncontrados =
+        ClienteService.clientes.where(
       (cliente) => cliente.nome == orcamento.cliente,
     );
 
@@ -89,74 +107,116 @@ class _OrcamentosPageState extends State<OrcamentosPage> {
 
     final cliente = clientesEncontrados.first;
 
-    final novaOrdem = OrdemServico(
-      id: OrdemServicoService.gerarId(),
-      numero: OrdemServicoService.gerarNumero(),
-      clienteId: cliente.id,
-      clienteNome: cliente.nome,
-      descricao: orcamento.descricao.isEmpty
-          ? 'Serviço referente ao ${orcamento.numero}.'
-          : orcamento.descricao,
-      prioridade: 'Normal',
-      status: 'Aberta',
-      data: DateTime.now(),
-      observacoes:
-          'Ordem de Serviço gerada a partir do ${orcamento.numero}.',
-      orcamentoId: orcamento.id,
-    );
+    setState(() {
+      _gerandoOs = true;
+    });
 
-    OrdemServicoService.adicionar(novaOrdem);
+    try {
+      final numeroOs =
+          await OrdemServicoService.gerarNumero();
 
-    final indice = OrcamentoService.orcamentos.indexOf(orcamento);
+      final novaOrdem = OrdemServico(
+        id: OrdemServicoService.gerarId(),
+        numero: numeroOs,
+        clienteId: cliente.id,
+        clienteNome: cliente.nome,
+        descricao: orcamento.descricao.isEmpty
+            ? 'Serviço referente ao ${orcamento.numero}.'
+            : orcamento.descricao,
+        prioridade: 'Normal',
+        status: 'Aberta',
+        data: DateTime.now(),
+        observacoes:
+            'Ordem de Serviço gerada a partir do ${orcamento.numero}.',
+        orcamentoId: orcamento.id,
+      );
 
-    if (indice >= 0) {
-      setState(() {
-        OrcamentoService.orcamentos[indice] = orcamento.copyWith(
+      await OrdemServicoService.adicionar(
+        novaOrdem,
+      );
+
+      final indice =
+          OrcamentoService.orcamentos.indexOf(
+        orcamento,
+      );
+
+      if (indice >= 0) {
+        OrcamentoService.orcamentos[indice] =
+            orcamento.copyWith(
           convertidoEmOs: true,
         );
-      });
-    }
+      }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          '${novaOrdem.numero} criada com sucesso.',
+      if (!mounted) return;
+
+      setState(() {});
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '${novaOrdem.numero} criada com sucesso.',
+          ),
         ),
-      ),
-    );
+      );
+    } catch (erro) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: Colors.red,
+          content: Text(
+            'Erro ao gerar Ordem de Serviço: $erro',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _gerandoOs = false;
+        });
+      }
+    }
   }
 
-  Future<void> _excluirOrcamento(Orcamento orcamento) async {
+  Future<void> _excluirOrcamento(
+    Orcamento orcamento,
+  ) async {
     final confirmar = await showDialog<bool>(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
         return AlertDialog(
-          title: const Text('Excluir orçamento'),
+          title: const Text(
+            'Excluir orçamento',
+          ),
           content: Text(
             'Deseja realmente excluir o orçamento ${orcamento.numero}?',
           ),
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.pop(context, false);
+                Navigator.of(dialogContext).pop(false);
               },
-              child: const Text('Cancelar'),
+              child: const Text(
+                'Cancelar',
+              ),
             ),
             FilledButton(
               style: FilledButton.styleFrom(
                 backgroundColor: Colors.red,
               ),
               onPressed: () {
-                Navigator.pop(context, true);
+                Navigator.of(dialogContext).pop(true);
               },
-              child: const Text('Excluir'),
+              child: const Text(
+                'Excluir',
+              ),
             ),
           ],
         );
       },
     );
 
-    if (confirmar != true) {
+    if (!mounted || confirmar != true) {
       return;
     }
 
@@ -164,13 +224,11 @@ class _OrcamentosPageState extends State<OrcamentosPage> {
       OrcamentoService.remover(orcamento);
     });
 
-    if (!mounted) {
-      return;
-    }
-
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Orçamento excluído com sucesso.'),
+        content: Text(
+          'Orçamento excluído com sucesso.',
+        ),
       ),
     );
   }
@@ -180,8 +238,11 @@ class _OrcamentosPageState extends State<OrcamentosPage> {
   }
 
   String _formatarData(DateTime data) {
-    final dia = data.day.toString().padLeft(2, '0');
-    final mes = data.month.toString().padLeft(2, '0');
+    final dia =
+        data.day.toString().padLeft(2, '0');
+
+    final mes =
+        data.month.toString().padLeft(2, '0');
 
     return '$dia/$mes/${data.year}';
   }
@@ -190,8 +251,10 @@ class _OrcamentosPageState extends State<OrcamentosPage> {
     switch (status.toLowerCase()) {
       case 'aprovado':
         return Colors.green;
+
       case 'reprovado':
         return Colors.red;
+
       default:
         return Colors.orange;
     }
@@ -199,96 +262,177 @@ class _OrcamentosPageState extends State<OrcamentosPage> {
 
   @override
   Widget build(BuildContext context) {
-    final orcamentos = OrcamentoService.orcamentos;
+    final orcamentos =
+        OrcamentoService.orcamentos;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor:
+          const Color(0xFFF5F5F5),
+
       appBar: AppBar(
-        title: const Text('Orçamentos'),
-        backgroundColor: const Color(0xFFE30613),
-        foregroundColor: Colors.white,
+        title: const Text(
+          'Orçamentos',
+        ),
+        backgroundColor:
+            const Color(0xFFE30613),
+        foregroundColor:
+            Colors.white,
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: const Color(0xFFE30613),
-        foregroundColor: Colors.white,
+
+      floatingActionButton:
+          FloatingActionButton.extended(
+        backgroundColor:
+            const Color(0xFFE30613),
+        foregroundColor:
+            Colors.white,
         onPressed: _abrirFormulario,
-        icon: const Icon(Icons.add),
-        label: const Text('Novo Orçamento'),
+        icon: const Icon(
+          Icons.add,
+        ),
+        label: const Text(
+          'Novo Orçamento',
+        ),
       ),
+
       body: orcamentos.isEmpty
-          ? Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(
-                      Icons.request_quote_outlined,
-                      size: 80,
-                      color: Color(0xFFE30613),
-                    ),
-                    const SizedBox(height: 18),
-                    const Text(
-                      'Nenhum orçamento cadastrado.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 21,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Clique em “Novo Orçamento” para criar o primeiro.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.black54,
-                      ),
-                    ),
-                    const SizedBox(height: 22),
-                    FilledButton.icon(
-                      onPressed: _abrirFormulario,
-                      icon: const Icon(Icons.add),
-                      label: const Text('Criar orçamento'),
-                    ),
-                  ],
-                ),
-              ),
-            )
+          ? _estadoVazio()
           : ListView.builder(
-              padding: const EdgeInsets.all(20),
-              itemCount: orcamentos.length,
-              itemBuilder: (context, index) {
-                final orcamento = orcamentos[index];
+              padding:
+                  const EdgeInsets.all(20),
+              itemCount:
+                  orcamentos.length,
+              itemBuilder:
+                  (context, index) {
+                final orcamento =
+                    orcamentos[index];
 
                 return _OrcamentoCard(
-                  orcamento: orcamento,
-                  valorFormatado: _formatarValor(orcamento.valor),
-                  dataFormatada: _formatarData(orcamento.data),
-                  corStatus: _corStatus(orcamento.status),
+                  orcamento:
+                      orcamento,
+                  valorFormatado:
+                      _formatarValor(
+                    orcamento.valor,
+                  ),
+                  dataFormatada:
+                      _formatarData(
+                    orcamento.data,
+                  ),
+                  corStatus:
+                      _corStatus(
+                    orcamento.status,
+                  ),
+                  gerandoOs:
+                      _gerandoOs,
+
                   onAprovar: () {
-                    _alterarStatus(orcamento, 'Aprovado');
+                    _alterarStatus(
+                      orcamento,
+                      'Aprovado',
+                    );
                   },
+
                   onReprovar: () {
-                    _alterarStatus(orcamento, 'Reprovado');
+                    _alterarStatus(
+                      orcamento,
+                      'Reprovado',
+                    );
                   },
+
                   onGerarOs: () {
-                    _gerarOrdemServico(orcamento);
+                    _gerarOrdemServico(
+                      orcamento,
+                    );
                   },
+
                   onExcluir: () {
-                    _excluirOrcamento(orcamento);
+                    _excluirOrcamento(
+                      orcamento,
+                    );
                   },
                 );
               },
             ),
     );
   }
+
+  Widget _estadoVazio() {
+    return Center(
+      child: Padding(
+        padding:
+            const EdgeInsets.all(24),
+
+        child: Column(
+          mainAxisAlignment:
+              MainAxisAlignment.center,
+
+          children: [
+            const Icon(
+              Icons
+                  .request_quote_outlined,
+              size: 80,
+              color:
+                  Color(0xFFE30613),
+            ),
+
+            const SizedBox(
+              height: 18,
+            ),
+
+            const Text(
+              'Nenhum orçamento cadastrado.',
+              textAlign:
+                  TextAlign.center,
+              style: TextStyle(
+                fontSize: 21,
+                fontWeight:
+                    FontWeight.bold,
+              ),
+            ),
+
+            const SizedBox(
+              height: 8,
+            ),
+
+            const Text(
+              'Clique em “Novo Orçamento” para criar o primeiro.',
+              textAlign:
+                  TextAlign.center,
+              style: TextStyle(
+                color:
+                    Colors.black54,
+              ),
+            ),
+
+            const SizedBox(
+              height: 22,
+            ),
+
+            FilledButton.icon(
+              onPressed:
+                  _abrirFormulario,
+              icon: const Icon(
+                Icons.add,
+              ),
+              label: const Text(
+                'Criar orçamento',
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
-class _OrcamentoCard extends StatelessWidget {
+class _OrcamentoCard
+    extends StatelessWidget {
   final Orcamento orcamento;
   final String valorFormatado;
   final String dataFormatada;
   final Color corStatus;
+
+  final bool gerandoOs;
+
   final VoidCallback onAprovar;
   final VoidCallback onReprovar;
   final VoidCallback onGerarOs;
@@ -299,6 +443,7 @@ class _OrcamentoCard extends StatelessWidget {
     required this.valorFormatado,
     required this.dataFormatada,
     required this.corStatus,
+    required this.gerandoOs,
     required this.onAprovar,
     required this.onReprovar,
     required this.onGerarOs,
@@ -307,118 +452,224 @@ class _OrcamentoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final aprovado = orcamento.status.toLowerCase() == 'aprovado';
+    final aprovado =
+        orcamento.status.toLowerCase() ==
+            'aprovado';
 
     return Card(
       elevation: 2,
-      margin: const EdgeInsets.only(bottom: 14),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
+      margin:
+          const EdgeInsets.only(
+        bottom: 14,
       ),
+
+      shape: RoundedRectangleBorder(
+        borderRadius:
+            BorderRadius.circular(14),
+      ),
+
       child: Padding(
-        padding: const EdgeInsets.all(14),
+        padding:
+            const EdgeInsets.all(14),
+
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment:
+              CrossAxisAlignment.start,
+
           children: [
             const CircleAvatar(
-              backgroundColor: Color(0xFFE30613),
-              foregroundColor: Colors.white,
-              child: Icon(Icons.request_quote),
+              backgroundColor:
+                  Color(0xFFE30613),
+              foregroundColor:
+                  Colors.white,
+              child: Icon(
+                Icons.request_quote,
+              ),
             ),
-            const SizedBox(width: 14),
+
+            const SizedBox(
+              width: 14,
+            ),
+
             Expanded(
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment:
+                    CrossAxisAlignment.start,
+
                 children: [
                   Text(
                     orcamento.numero,
-                    style: const TextStyle(
+                    style:
+                        const TextStyle(
                       fontSize: 17,
-                      fontWeight: FontWeight.bold,
+                      fontWeight:
+                          FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(height: 5),
+
+                  const SizedBox(
+                    height: 5,
+                  ),
+
                   Text(
                     orcamento.cliente,
-                    style: const TextStyle(fontSize: 15),
+                    style:
+                        const TextStyle(
+                      fontSize: 15,
+                    ),
                   ),
-                  if (orcamento.descricao.isNotEmpty) ...[
-                    const SizedBox(height: 8),
+
+                  if (orcamento
+                      .descricao
+                      .isNotEmpty) ...[
+                    const SizedBox(
+                      height: 8,
+                    ),
+
                     Text(
-                      orcamento.descricao,
+                      orcamento
+                          .descricao,
                       maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
+                      overflow:
+                          TextOverflow
+                              .ellipsis,
                     ),
                   ],
-                  const SizedBox(height: 10),
+
+                  const SizedBox(
+                    height: 10,
+                  ),
+
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
+
                     children: [
                       Chip(
-                        avatar: const Icon(
-                          Icons.attach_money,
+                        avatar:
+                            const Icon(
+                          Icons
+                              .attach_money,
                           size: 18,
                         ),
-                        label: Text(valorFormatado),
+                        label: Text(
+                          valorFormatado,
+                        ),
                       ),
+
                       Chip(
-                        avatar: const Icon(
-                          Icons.calendar_today,
+                        avatar:
+                            const Icon(
+                          Icons
+                              .calendar_today,
                           size: 18,
                         ),
-                        label: Text(dataFormatada),
+                        label: Text(
+                          dataFormatada,
+                        ),
                       ),
+
                       Chip(
                         backgroundColor:
-                            corStatus.withValues(alpha: 0.12),
+                            corStatus
+                                .withValues(
+                          alpha: 0.12,
+                        ),
                         label: Text(
-                          orcamento.status,
-                          style: TextStyle(
-                            color: corStatus,
-                            fontWeight: FontWeight.bold,
+                          orcamento
+                              .status,
+                          style:
+                              TextStyle(
+                            color:
+                                corStatus,
+                            fontWeight:
+                                FontWeight
+                                    .bold,
                           ),
                         ),
                       ),
-                      if (orcamento.convertidoEmOs)
+
+                      if (orcamento
+                          .convertidoEmOs)
                         const Chip(
                           avatar: Icon(
-                            Icons.check_circle,
+                            Icons
+                                .check_circle,
                             size: 18,
-                            color: Colors.green,
+                            color:
+                                Colors.green,
                           ),
-                          label: Text('OS gerada'),
+                          label: Text(
+                            'OS gerada',
+                          ),
                         ),
                     ],
                   ),
-                  if (aprovado && !orcamento.convertidoEmOs) ...[
-                    const SizedBox(height: 12),
+
+                  if (aprovado &&
+                      !orcamento
+                          .convertidoEmOs) ...[
+                    const SizedBox(
+                      height: 12,
+                    ),
+
                     FilledButton.icon(
-                      onPressed: onGerarOs,
-                      icon: const Icon(Icons.assignment_add),
-                      label: const Text('Gerar Ordem de Serviço'),
+                      onPressed:
+                          gerandoOs
+                              ? null
+                              : onGerarOs,
+
+                      icon: gerandoOs
+                          ? const SizedBox(
+                              width: 17,
+                              height: 17,
+                              child:
+                                  CircularProgressIndicator(
+                                strokeWidth:
+                                    2,
+                                color:
+                                    Colors.white,
+                              ),
+                            )
+                          : const Icon(
+                              Icons
+                                  .assignment_add,
+                            ),
+
+                      label: Text(
+                        gerandoOs
+                            ? 'Gerando OS...'
+                            : 'Gerar Ordem de Serviço',
+                      ),
                     ),
                   ],
                 ],
               ),
             ),
+
             PopupMenuButton<String>(
               onSelected: (opcao) {
                 switch (opcao) {
                   case 'aprovar':
                     onAprovar();
                     break;
+
                   case 'reprovar':
                     onReprovar();
                     break;
+
                   case 'gerar_os':
-                    onGerarOs();
+                    if (!gerandoOs) {
+                      onGerarOs();
+                    }
                     break;
+
                   case 'excluir':
                     onExcluir();
                     break;
                 }
               },
+
               itemBuilder: (context) {
                 return [
                   const PopupMenuItem(
@@ -426,49 +677,80 @@ class _OrcamentoCard extends StatelessWidget {
                     child: Row(
                       children: [
                         Icon(
-                          Icons.check_circle_outline,
-                          color: Colors.green,
+                          Icons
+                              .check_circle_outline,
+                          color:
+                              Colors.green,
                         ),
-                        SizedBox(width: 10),
-                        Text('Aprovar'),
+                        SizedBox(
+                          width: 10,
+                        ),
+                        Text(
+                          'Aprovar',
+                        ),
                       ],
                     ),
                   ),
+
                   const PopupMenuItem(
                     value: 'reprovar',
                     child: Row(
                       children: [
                         Icon(
-                          Icons.cancel_outlined,
-                          color: Colors.red,
+                          Icons
+                              .cancel_outlined,
+                          color:
+                              Colors.red,
                         ),
-                        SizedBox(width: 10),
-                        Text('Reprovar'),
+                        SizedBox(
+                          width: 10,
+                        ),
+                        Text(
+                          'Reprovar',
+                        ),
                       ],
                     ),
                   ),
-                  if (aprovado && !orcamento.convertidoEmOs)
+
+                  if (aprovado &&
+                      !orcamento
+                          .convertidoEmOs)
                     const PopupMenuItem(
                       value: 'gerar_os',
                       child: Row(
                         children: [
-                          Icon(Icons.assignment_add),
-                          SizedBox(width: 10),
-                          Text('Gerar OS'),
+                          Icon(
+                            Icons
+                                .assignment_add,
+                          ),
+                          SizedBox(
+                            width: 10,
+                          ),
+                          Text(
+                            'Gerar OS',
+                          ),
                         ],
                       ),
                     ),
+
                   const PopupMenuDivider(),
+
                   const PopupMenuItem(
                     value: 'excluir',
                     child: Row(
                       children: [
                         Icon(
-                          Icons.delete_outline,
-                          color: Colors.red,
+                          Icons
+                              .delete_outline,
+                          color:
+                              Colors.red,
                         ),
-                        SizedBox(width: 10),
-                        Text('Excluir'),
+                        SizedBox(
+                          width: 10,
+                        ),
+                        Text(
+                          'Excluir',
+                        ),
                       ],
                     ),
                   ),

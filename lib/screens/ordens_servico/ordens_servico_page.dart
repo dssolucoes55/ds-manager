@@ -23,9 +23,9 @@ class _OrdensServicoPageState extends State<OrdensServicoPage> {
     super.dispose();
   }
 
-  List<OrdemServico> get _ordensFiltradas {
-    final ordens = OrdemServicoService.ordens;
-
+  List<OrdemServico> _filtrarOrdens(
+    List<OrdemServico> ordens,
+  ) {
     if (_pesquisa.trim().isEmpty) {
       return ordens;
     }
@@ -37,7 +37,8 @@ class _OrdensServicoPageState extends State<OrdensServicoPage> {
           ordem.clienteNome.toLowerCase().contains(texto) ||
           ordem.tecnico.toLowerCase().contains(texto) ||
           ordem.descricao.toLowerCase().contains(texto) ||
-          ordem.status.toLowerCase().contains(texto);
+          ordem.status.toLowerCase().contains(texto) ||
+          ordem.prioridade.toLowerCase().contains(texto);
     }).toList();
   }
 
@@ -49,18 +50,22 @@ class _OrdensServicoPageState extends State<OrdensServicoPage> {
       ),
     );
 
-    if (salvou == true && mounted) {
-      setState(() {});
+    if (!mounted) return;
 
+    if (salvou == true) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Ordem de Serviço cadastrada com sucesso.'),
+          content: Text(
+            'Ordem de Serviço cadastrada com sucesso.',
+          ),
         ),
       );
     }
   }
 
-  Future<void> _abrirDetalhes(OrdemServico ordem) async {
+  Future<void> _abrirDetalhes(
+    OrdemServico ordem,
+  ) async {
     await Navigator.push(
       context,
       MaterialPageRoute(
@@ -69,53 +74,71 @@ class _OrdensServicoPageState extends State<OrdensServicoPage> {
         ),
       ),
     );
-
-    if (mounted) {
-      setState(() {});
-    }
   }
 
-  void _alterarStatus(OrdemServico ordem, String novoStatus) {
-    final indice = OrdemServicoService.ordens.indexWhere(
-      (item) => item.id == ordem.id,
-    );
-
-    if (indice < 0) {
-      return;
-    }
-
+  Future<void> _alterarStatus(
+    OrdemServico ordem,
+    String novoStatus,
+  ) async {
     final ordemAtualizada = ordem.copyWith(
       status: novoStatus,
     );
 
-    setState(() {
-      OrdemServicoService.atualizar(indice, ordemAtualizada);
-    });
+    try {
+      await OrdemServicoService.atualizar(
+        ordemAtualizada,
+      );
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Status alterado para $novoStatus.'),
-      ),
-    );
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Status alterado para $novoStatus.',
+          ),
+        ),
+      );
+    } catch (erro) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: Colors.red,
+          content: Text(
+            'Erro ao alterar status: $erro',
+          ),
+        ),
+      );
+    }
   }
 
-  Future<void> _excluirOrdem(OrdemServico ordem) async {
+  Future<void> _excluirOrdem(
+    OrdemServico ordem,
+  ) async {
     final confirmar = await showDialog<bool>(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
         return AlertDialog(
-          title: const Text('Excluir Ordem de Serviço'),
-          content: Text('Deseja realmente excluir a ${ordem.numero}?'),
+          title: const Text(
+            'Excluir Ordem de Serviço',
+          ),
+          content: Text(
+            'Deseja realmente excluir a ${ordem.numero}?',
+          ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context, false),
+              onPressed: () {
+                Navigator.of(dialogContext).pop(false);
+              },
               child: const Text('Cancelar'),
             ),
             FilledButton(
               style: FilledButton.styleFrom(
                 backgroundColor: Colors.red,
               ),
-              onPressed: () => Navigator.pop(context, true),
+              onPressed: () {
+                Navigator.of(dialogContext).pop(true);
+              },
               child: const Text('Excluir'),
             ),
           ],
@@ -123,28 +146,40 @@ class _OrdensServicoPageState extends State<OrdensServicoPage> {
       },
     );
 
-    if (confirmar != true) {
+    if (!mounted || confirmar != true) {
       return;
     }
 
-    setState(() {
-      OrdemServicoService.remover(ordem);
-    });
+    try {
+      await OrdemServicoService.remover(ordem);
 
-    if (!mounted) {
-      return;
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Ordem de Serviço excluída com sucesso.',
+          ),
+        ),
+      );
+    } catch (erro) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: Colors.red,
+          content: Text(
+            'Erro ao excluir Ordem de Serviço: $erro',
+          ),
+        ),
+      );
     }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Ordem de Serviço excluída com sucesso.'),
-      ),
-    );
   }
 
   String _formatarData(DateTime data) {
     final dia = data.day.toString().padLeft(2, '0');
     final mes = data.month.toString().padLeft(2, '0');
+
     return '$dia/$mes/${data.year}';
   }
 
@@ -153,6 +188,7 @@ class _OrdensServicoPageState extends State<OrdensServicoPage> {
       case 'em andamento':
         return Colors.orange;
       case 'concluída':
+      case 'concluida':
         return Colors.green;
       case 'cancelada':
         return Colors.red;
@@ -176,12 +212,12 @@ class _OrdensServicoPageState extends State<OrdensServicoPage> {
 
   @override
   Widget build(BuildContext context) {
-    final ordens = _ordensFiltradas;
-
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
       appBar: AppBar(
-        title: const Text('Ordens de Serviço'),
+        title: const Text(
+          'Ordens de Serviço',
+        ),
         backgroundColor: const Color(0xFFE30613),
         foregroundColor: Colors.white,
       ),
@@ -205,49 +241,103 @@ class _OrdensServicoPageState extends State<OrdensServicoPage> {
               },
               decoration: InputDecoration(
                 hintText: 'Pesquisar Ordem de Serviço',
-                prefixIcon: const Icon(Icons.search),
+                prefixIcon: const Icon(
+                  Icons.search,
+                ),
                 suffixIcon: _pesquisa.isNotEmpty
                     ? IconButton(
                         tooltip: 'Limpar pesquisa',
                         onPressed: () {
                           _pesquisaController.clear();
+
                           setState(() {
                             _pesquisa = '';
                           });
                         },
-                        icon: const Icon(Icons.close),
+                        icon: const Icon(
+                          Icons.close,
+                        ),
                       )
                     : null,
                 filled: true,
                 fillColor: Colors.white,
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius:
+                      BorderRadius.circular(12),
                   borderSide: BorderSide.none,
                 ),
               ),
             ),
-            const SizedBox(height: 20),
-            Expanded(
-              child: ordens.isEmpty
-                  ? _estadoVazio()
-                  : ListView.builder(
-                      itemCount: ordens.length,
-                      itemBuilder: (context, index) {
-                        final ordem = ordens[index];
 
-                        return _OrdemServicoCard(
-                          ordem: ordem,
-                          dataFormatada: _formatarData(ordem.data),
-                          corStatus: _corStatus(ordem.status),
-                          corPrioridade: _corPrioridade(ordem.prioridade),
-                          onTap: () => _abrirDetalhes(ordem),
-                          onAlterarStatus: (status) {
-                            _alterarStatus(ordem, status);
-                          },
-                          onExcluir: () => _excluirOrdem(ordem),
-                        );
-                      },
-                    ),
+            const SizedBox(height: 20),
+
+            Expanded(
+              child: StreamBuilder<List<OrdemServico>>(
+                stream:
+                    OrdemServicoService.observarOrdens(),
+                builder: (context, snapshot) {
+                  if (snapshot.hasError) {
+                    return Center(
+                      child: Text(
+                        'Erro ao carregar Ordens de Serviço:\n${snapshot.error}',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Colors.red,
+                        ),
+                      ),
+                    );
+                  }
+
+                  if (snapshot.connectionState ==
+                          ConnectionState.waiting &&
+                      !snapshot.hasData) {
+                    return const Center(
+                      child: CircularProgressIndicator(
+                        color: Color(0xFFE30613),
+                      ),
+                    );
+                  }
+
+                  final ordens = _filtrarOrdens(
+                    snapshot.data ?? [],
+                  );
+
+                  if (ordens.isEmpty) {
+                    return _estadoVazio();
+                  }
+
+                  return ListView.builder(
+                    itemCount: ordens.length,
+                    itemBuilder: (context, index) {
+                      final ordem = ordens[index];
+
+                      return _OrdemServicoCard(
+                        ordem: ordem,
+                        dataFormatada:
+                            _formatarData(ordem.data),
+                        corStatus:
+                            _corStatus(ordem.status),
+                        corPrioridade:
+                            _corPrioridade(
+                          ordem.prioridade,
+                        ),
+                        onTap: () {
+                          _abrirDetalhes(ordem);
+                        },
+                        onAlterarStatus: (status) {
+                          _alterarStatus(
+                            ordem,
+                            status,
+                          );
+                        },
+                        onExcluir: () {
+                          _excluirOrdem(ordem);
+                        },
+                      );
+                    },
+                  );
+                },
+              ),
             ),
           ],
         ),
@@ -260,14 +350,17 @@ class _OrdensServicoPageState extends State<OrdensServicoPage> {
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisAlignment:
+              MainAxisAlignment.center,
           children: [
             const Icon(
               Icons.assignment_outlined,
               size: 82,
               color: Color(0xFFE30613),
             ),
+
             const SizedBox(height: 18),
+
             Text(
               _pesquisa.isEmpty
                   ? 'Nenhuma Ordem de Serviço cadastrada.'
@@ -278,7 +371,9 @@ class _OrdensServicoPageState extends State<OrdensServicoPage> {
                 fontWeight: FontWeight.bold,
               ),
             ),
+
             const SizedBox(height: 8),
+
             if (_pesquisa.isEmpty)
               const Text(
                 'Clique em “Nova OS” para cadastrar a primeira.',
@@ -287,12 +382,19 @@ class _OrdensServicoPageState extends State<OrdensServicoPage> {
                   color: Colors.black54,
                 ),
               ),
+
             if (_pesquisa.isEmpty) ...[
               const SizedBox(height: 22),
               FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  backgroundColor:
+                      const Color(0xFFE30613),
+                ),
                 onPressed: _abrirFormulario,
                 icon: const Icon(Icons.add),
-                label: const Text('Criar Ordem de Serviço'),
+                label: const Text(
+                  'Criar Ordem de Serviço',
+                ),
               ),
             ],
           ],
@@ -325,9 +427,12 @@ class _OrdemServicoCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       elevation: 2,
-      margin: const EdgeInsets.only(bottom: 14),
+      margin: const EdgeInsets.only(
+        bottom: 14,
+      ),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius:
+            BorderRadius.circular(14),
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -335,100 +440,141 @@ class _OrdemServicoCard extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment:
+                CrossAxisAlignment.start,
             children: [
               const CircleAvatar(
-                backgroundColor: Color(0xFFE30613),
-                foregroundColor: Colors.white,
-                child: Icon(Icons.assignment),
+                backgroundColor:
+                    Color(0xFFE30613),
+                foregroundColor:
+                    Colors.white,
+                child: Icon(
+                  Icons.assignment,
+                ),
               ),
+
               const SizedBox(width: 14),
+
               Expanded(
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment:
+                      CrossAxisAlignment.start,
                   children: [
                     Text(
                       ordem.numero,
                       style: const TextStyle(
                         fontSize: 18,
-                        fontWeight: FontWeight.bold,
+                        fontWeight:
+                            FontWeight.bold,
                       ),
                     ),
+
                     const SizedBox(height: 4),
+
                     Text(
                       ordem.clienteNome,
-                      style: const TextStyle(fontSize: 16),
+                      style: const TextStyle(
+                        fontSize: 16,
+                      ),
                     ),
+
                     const SizedBox(height: 10),
+
                     Text(
                       ordem.descricao,
                       maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
+                      overflow:
+                          TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: Colors.black87,
                       ),
                     ),
+
                     const SizedBox(height: 12),
+
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
                       children: [
                         Chip(
-                          backgroundColor: corStatus.withValues(alpha: 0.12),
+                          backgroundColor:
+                              corStatus.withValues(
+                            alpha: 0.12,
+                          ),
                           label: Text(
                             ordem.status,
                             style: TextStyle(
                               color: corStatus,
-                              fontWeight: FontWeight.bold,
+                              fontWeight:
+                                  FontWeight.bold,
                             ),
                           ),
                         ),
+
                         Chip(
                           backgroundColor:
-                              corPrioridade.withValues(alpha: 0.12),
+                              corPrioridade
+                                  .withValues(
+                            alpha: 0.12,
+                          ),
                           avatar: Icon(
                             Icons.priority_high,
                             size: 18,
-                            color: corPrioridade,
+                            color:
+                                corPrioridade,
                           ),
                           label: Text(
                             ordem.prioridade,
                             style: TextStyle(
-                              color: corPrioridade,
-                              fontWeight: FontWeight.bold,
+                              color:
+                                  corPrioridade,
+                              fontWeight:
+                                  FontWeight.bold,
                             ),
                           ),
                         ),
+
                         Chip(
                           avatar: const Icon(
                             Icons.calendar_today,
                             size: 18,
                           ),
-                          label: Text(dataFormatada),
+                          label: Text(
+                            dataFormatada,
+                          ),
                         ),
+
                         if (ordem.tecnico.isNotEmpty)
                           Chip(
                             avatar: const Icon(
                               Icons.engineering,
                               size: 18,
                             ),
-                            label: Text(ordem.tecnico),
+                            label: Text(
+                              ordem.tecnico,
+                            ),
                           ),
                       ],
                     ),
-                    if (ordem.observacoes.isNotEmpty) ...[
+
+                    if (ordem
+                        .observacoes.isNotEmpty) ...[
                       const SizedBox(height: 10),
                       Text(
                         'Observações: ${ordem.observacoes}',
                         style: const TextStyle(
                           color: Colors.black54,
-                          fontStyle: FontStyle.italic,
+                          fontStyle:
+                              FontStyle.italic,
                         ),
                       ),
                     ],
+
                     const SizedBox(height: 8),
+
                     const Row(
-                      mainAxisSize: MainAxisSize.min,
+                      mainAxisSize:
+                          MainAxisSize.min,
                       children: [
                         Icon(
                           Icons.touch_app_outlined,
@@ -439,7 +585,8 @@ class _OrdemServicoCard extends StatelessWidget {
                         Text(
                           'Clique para visualizar os detalhes',
                           style: TextStyle(
-                            color: Colors.black45,
+                            color:
+                                Colors.black45,
                             fontSize: 13,
                           ),
                         ),
@@ -448,21 +595,34 @@ class _OrdemServicoCard extends StatelessWidget {
                   ],
                 ),
               ),
+
               PopupMenuButton<String>(
                 onSelected: (opcao) {
                   switch (opcao) {
                     case 'aberta':
-                      onAlterarStatus('Aberta');
+                      onAlterarStatus(
+                        'Aberta',
+                      );
                       break;
+
                     case 'andamento':
-                      onAlterarStatus('Em andamento');
+                      onAlterarStatus(
+                        'Em andamento',
+                      );
                       break;
+
                     case 'concluida':
-                      onAlterarStatus('Concluída');
+                      onAlterarStatus(
+                        'Concluída',
+                      );
                       break;
+
                     case 'cancelada':
-                      onAlterarStatus('Cancelada');
+                      onAlterarStatus(
+                        'Cancelada',
+                      );
                       break;
+
                     case 'excluir':
                       onExcluir();
                       break;
@@ -472,19 +632,27 @@ class _OrdemServicoCard extends StatelessWidget {
                   return const [
                     PopupMenuItem(
                       value: 'aberta',
-                      child: Text('Marcar como aberta'),
+                      child: Text(
+                        'Marcar como aberta',
+                      ),
                     ),
                     PopupMenuItem(
                       value: 'andamento',
-                      child: Text('Marcar em andamento'),
+                      child: Text(
+                        'Marcar em andamento',
+                      ),
                     ),
                     PopupMenuItem(
                       value: 'concluida',
-                      child: Text('Marcar como concluída'),
+                      child: Text(
+                        'Marcar como concluída',
+                      ),
                     ),
                     PopupMenuItem(
                       value: 'cancelada',
-                      child: Text('Marcar como cancelada'),
+                      child: Text(
+                        'Marcar como cancelada',
+                      ),
                     ),
                     PopupMenuDivider(),
                     PopupMenuItem(

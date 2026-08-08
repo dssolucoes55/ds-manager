@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../clientes/clientes_page.dart';
 import '../ordens_servico/ordens_servico_page.dart';
 import '../orcamentos/orcamentos_page.dart';
-
+import '../../models/cliente.dart';
 import '../../services/cliente_service.dart';
 import '../../services/ordem_servico_service.dart';
 import '../../services/orcamento_service.dart';
@@ -28,8 +28,7 @@ class _DashboardPageState extends State<DashboardPage> {
     'Agenda',
     'Configurações',
   ];
-   int get _totalClientes => ClienteService.clientes.length;
-
+  
    int get _totalOrdens => OrdemServicoService.ordens.length;
 
    int get _totalOrcamentos => OrcamentoService.orcamentos.length;
@@ -391,17 +390,26 @@ title: Text(
                       });
                     },
                   ),
-                  _cardIndicador(
-                    titulo: 'Clientes',
-                    valor: _totalClientes.toString(),
-                    icon: Icons.people_outline,
-                    cor: Colors.green,
-                    onTap: () {
+                  StreamBuilder<List<Cliente>>(
+                   stream: ClienteService.observarClientes(),
+                   builder: (context, snapshot) {
+                    final totalClientes =
+                      snapshot.data?.length ?? ClienteService.clientes.length;
+
+                    return _cardIndicador(
+                     titulo: 'Clientes',
+                     valor: totalClientes.toString(),
+                     icon: Icons.people_outline,
+                     cor: Colors.green,
+                     onTap: () {
                       setState(() {
                         _paginaSelecionada = 1;
-                      });
-                    },
-                  ),
+                       });
+                     },
+                   );
+                 },
+               ),
+               
                   _cardIndicador(
                     titulo: 'Orçamentos',
                     valor: _totalOrcamentos.toString(),

@@ -17,12 +17,17 @@ class OrdemServicoDetalhe extends StatefulWidget {
   });
 
   @override
-  State<OrdemServicoDetalhe> createState() => _OrdemServicoDetalheState();
+  State<OrdemServicoDetalhe> createState() =>
+      _OrdemServicoDetalheState();
 }
 
-class _OrdemServicoDetalheState extends State<OrdemServicoDetalhe> {
+class _OrdemServicoDetalheState
+    extends State<OrdemServicoDetalhe> {
   late OrdemServico _ordem;
+
   bool _gerandoPdf = false;
+  bool _salvandoFotos = false;
+
   final ImagePicker _imagePicker = ImagePicker();
 
   @override
@@ -32,8 +37,12 @@ class _OrdemServicoDetalheState extends State<OrdemServicoDetalhe> {
   }
 
   String _formatarData(DateTime data) {
-    final dia = data.day.toString().padLeft(2, '0');
-    final mes = data.month.toString().padLeft(2, '0');
+    final dia =
+        data.day.toString().padLeft(2, '0');
+
+    final mes =
+        data.month.toString().padLeft(2, '0');
+
     return '$dia/$mes/${data.year}';
   }
 
@@ -41,10 +50,14 @@ class _OrdemServicoDetalheState extends State<OrdemServicoDetalhe> {
     switch (status.toLowerCase()) {
       case 'em andamento':
         return Colors.orange;
+
       case 'concluída':
+      case 'concluida':
         return Colors.green;
+
       case 'cancelada':
         return Colors.red;
+
       default:
         return Colors.blue;
     }
@@ -54,31 +67,56 @@ class _OrdemServicoDetalheState extends State<OrdemServicoDetalhe> {
     switch (prioridade.toLowerCase()) {
       case 'urgente':
         return Colors.red;
+
       case 'alta':
         return Colors.orange;
+
       case 'baixa':
         return Colors.green;
+
       default:
         return Colors.blueGrey;
     }
   }
 
-  void _alterarStatus(String novoStatus) {
-    final indice = OrdemServicoService.ordens.indexWhere(
-      (ordem) => ordem.id == _ordem.id,
+  Future<void> _alterarStatus(
+    String novoStatus,
+  ) async {
+    final ordemAtualizada =
+        _ordem.copyWith(
+      status: novoStatus,
     );
-    if (indice < 0) return;
 
-    final ordemAtualizada = _ordem.copyWith(status: novoStatus);
-    OrdemServicoService.atualizar(indice, ordemAtualizada);
+    try {
+      await OrdemServicoService.atualizar(
+        ordemAtualizada,
+      );
 
-    setState(() {
-      _ordem = ordemAtualizada;
-    });
+      if (!mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Status alterado para $novoStatus.')),
-    );
+      setState(() {
+        _ordem = ordemAtualizada;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Status alterado para $novoStatus.',
+          ),
+        ),
+      );
+    } catch (erro) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: Colors.red,
+          content: Text(
+            'Erro ao alterar status: $erro',
+          ),
+        ),
+      );
+    }
   }
 
   Future<void> _gerarPdf() async {
@@ -89,16 +127,24 @@ class _OrdemServicoDetalheState extends State<OrdemServicoDetalhe> {
     });
 
     try {
-      final arquivo = await PdfService.gerarOrdemServico(_ordem);
+      final arquivo =
+          await PdfService.gerarOrdemServico(
+        _ordem,
+      );
+
       await Printing.layoutPdf(
         name: '${_ordem.numero}.pdf',
         onLayout: (_) async => arquivo,
       );
     } catch (erro) {
       if (!mounted) return;
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Não foi possível gerar o PDF: $erro'),
+          backgroundColor: Colors.red,
+          content: Text(
+            'Não foi possível gerar o PDF: $erro',
+          ),
         ),
       );
     } finally {
@@ -110,19 +156,33 @@ class _OrdemServicoDetalheState extends State<OrdemServicoDetalhe> {
     }
   }
 
-  Future<void> _adicionarFoto({required bool antes}) async {
+  Future<void> _adicionarFoto({
+    required bool antes,
+  }) async {
     try {
-      final XFile? imagem = await _imagePicker.pickImage(
+      final XFile? imagem =
+          await _imagePicker.pickImage(
         source: ImageSource.gallery,
         imageQuality: 80,
         maxWidth: 1600,
       );
 
-      if (imagem == null) return;
+      if (imagem == null) {
+        return;
+      }
 
-      final Uint8List bytes = await imagem.readAsBytes();
-      final fotosAntes = List<Uint8List>.from(_ordem.fotosAntes);
-      final fotosDepois = List<Uint8List>.from(_ordem.fotosDepois);
+      final Uint8List bytes =
+          await imagem.readAsBytes();
+
+      final fotosAntes =
+          List<Uint8List>.from(
+        _ordem.fotosAntes,
+      );
+
+      final fotosDepois =
+          List<Uint8List>.from(
+        _ordem.fotosDepois,
+      );
 
       if (antes) {
         fotosAntes.add(bytes);
@@ -130,142 +190,291 @@ class _OrdemServicoDetalheState extends State<OrdemServicoDetalhe> {
         fotosDepois.add(bytes);
       }
 
-      _atualizarFotos(
+      await _atualizarFotos(
         fotosAntes: fotosAntes,
         fotosDepois: fotosDepois,
       );
     } catch (erro) {
       if (!mounted) return;
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Não foi possível adicionar a foto: $erro'),
+          backgroundColor: Colors.red,
+          content: Text(
+            'Não foi possível adicionar a foto: $erro',
+          ),
         ),
       );
     }
   }
 
-  void _removerFoto({
+  Future<void> _removerFoto({
     required bool antes,
     required int indiceFoto,
-  }) {
-    final fotosAntes = List<Uint8List>.from(_ordem.fotosAntes);
-    final fotosDepois = List<Uint8List>.from(_ordem.fotosDepois);
+  }) async {
+    final fotosAntes =
+        List<Uint8List>.from(
+      _ordem.fotosAntes,
+    );
+
+    final fotosDepois =
+        List<Uint8List>.from(
+      _ordem.fotosDepois,
+    );
 
     if (antes) {
-      fotosAntes.removeAt(indiceFoto);
+      if (indiceFoto >= fotosAntes.length) {
+        return;
+      }
+
+      fotosAntes.removeAt(
+        indiceFoto,
+      );
     } else {
-      fotosDepois.removeAt(indiceFoto);
+      if (indiceFoto >= fotosDepois.length) {
+        return;
+      }
+
+      fotosDepois.removeAt(
+        indiceFoto,
+      );
     }
 
-    _atualizarFotos(
+    await _atualizarFotos(
       fotosAntes: fotosAntes,
       fotosDepois: fotosDepois,
     );
   }
 
-  void _atualizarFotos({
+  Future<void> _atualizarFotos({
     required List<Uint8List> fotosAntes,
     required List<Uint8List> fotosDepois,
-  }) {
-    final indiceOrdem = OrdemServicoService.ordens.indexWhere(
-      (ordem) => ordem.id == _ordem.id,
-    );
-    if (indiceOrdem < 0) return;
+  }) async {
+    if (_salvandoFotos) {
+      return;
+    }
 
-    final ordemAtualizada = _ordem.copyWith(
+    setState(() {
+      _salvandoFotos = true;
+    });
+
+    final ordemAtualizada =
+        _ordem.copyWith(
       fotosAntes: fotosAntes,
       fotosDepois: fotosDepois,
     );
 
-    OrdemServicoService.atualizar(indiceOrdem, ordemAtualizada);
+    try {
+      /*
+       * IMPORTANTE:
+       *
+       * O Firestore salva os dados da OS,
+       * mas o método toMap() da OrdemServico
+       * não envia as fotos para o Firestore.
+       *
+       * Por enquanto as fotos continuam
+       * disponíveis nesta execução do sistema
+       * e para gerar o PDF.
+       *
+       * Depois vamos salvá-las no
+       * Firebase Storage.
+       */
 
-    setState(() {
-      _ordem = ordemAtualizada;
-    });
+      await OrdemServicoService.atualizar(
+        ordemAtualizada,
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _ordem = ordemAtualizada;
+      });
+    } catch (erro) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: Colors.red,
+          content: Text(
+            'Erro ao atualizar fotos: $erro',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _salvandoFotos = false;
+        });
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final corStatus = _corStatus(_ordem.status);
-    final corPrioridade = _corPrioridade(_ordem.prioridade);
+    final corStatus =
+        _corStatus(_ordem.status);
+
+    final corPrioridade =
+        _corPrioridade(
+      _ordem.prioridade,
+    );
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor:
+          const Color(0xFFF5F5F5),
+
       appBar: AppBar(
-        title: Text(_ordem.numero),
-        backgroundColor: const Color(0xFFE30613),
-        foregroundColor: Colors.white,
+        title: Text(
+          _ordem.numero,
+        ),
+        backgroundColor:
+            const Color(0xFFE30613),
+        foregroundColor:
+            Colors.white,
+
         actions: [
           IconButton(
             tooltip: 'Gerar PDF',
-            onPressed: _gerandoPdf ? null : _gerarPdf,
-            icon: const Icon(Icons.picture_as_pdf),
+            onPressed:
+                _gerandoPdf
+                    ? null
+                    : _gerarPdf,
+            icon: const Icon(
+              Icons.picture_as_pdf,
+            ),
           ),
+
           PopupMenuButton<String>(
-            onSelected: _alterarStatus,
-            itemBuilder: (context) => const [
-              PopupMenuItem(value: 'Aberta', child: Text('Marcar como aberta')),
+            onSelected: (status) {
+              _alterarStatus(status);
+            },
+            itemBuilder: (context) =>
+                const [
+              PopupMenuItem(
+                value: 'Aberta',
+                child: Text(
+                  'Marcar como aberta',
+                ),
+              ),
+
               PopupMenuItem(
                 value: 'Em andamento',
-                child: Text('Marcar em andamento'),
+                child: Text(
+                  'Marcar em andamento',
+                ),
               ),
+
               PopupMenuItem(
                 value: 'Concluída',
-                child: Text('Marcar como concluída'),
+                child: Text(
+                  'Marcar como concluída',
+                ),
               ),
+
               PopupMenuItem(
                 value: 'Cancelada',
-                child: Text('Marcar como cancelada'),
+                child: Text(
+                  'Marcar como cancelada',
+                ),
               ),
             ],
           ),
         ],
       ),
+
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+        padding:
+            const EdgeInsets.all(20),
+
         child: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 900),
+            constraints:
+                const BoxConstraints(
+              maxWidth: 900,
+            ),
+
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
+
               children: [
                 Card(
                   elevation: 2,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+
+                  shape:
+                      RoundedRectangleBorder(
+                    borderRadius:
+                        BorderRadius.circular(
+                      16,
+                    ),
                   ),
+
                   child: Padding(
-                    padding: const EdgeInsets.all(20),
+                    padding:
+                        const EdgeInsets.all(
+                      20,
+                    ),
+
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      crossAxisAlignment:
+                          CrossAxisAlignment
+                              .start,
+
                       children: [
                         Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                          crossAxisAlignment:
+                              CrossAxisAlignment
+                                  .start,
+
                           children: [
                             const CircleAvatar(
                               radius: 28,
-                              backgroundColor: Color(0xFFE30613),
-                              foregroundColor: Colors.white,
-                              child: Icon(Icons.assignment, size: 30),
+                              backgroundColor:
+                                  Color(
+                                0xFFE30613,
+                              ),
+                              foregroundColor:
+                                  Colors.white,
+                              child: Icon(
+                                Icons.assignment,
+                                size: 30,
+                              ),
                             ),
-                            const SizedBox(width: 16),
+
+                            const SizedBox(
+                              width: 16,
+                            ),
+
                             Expanded(
                               child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                                crossAxisAlignment:
+                                    CrossAxisAlignment
+                                        .start,
+
                                 children: [
                                   Text(
                                     _ordem.numero,
-                                    style: const TextStyle(
+                                    style:
+                                        const TextStyle(
                                       fontSize: 24,
-                                      fontWeight: FontWeight.bold,
+                                      fontWeight:
+                                          FontWeight
+                                              .bold,
                                     ),
                                   ),
-                                  const SizedBox(height: 4),
+
+                                  const SizedBox(
+                                    height: 4,
+                                  ),
+
                                   Text(
-                                    _ordem.clienteNome,
-                                    style: const TextStyle(
+                                    _ordem
+                                        .clienteNome,
+                                    style:
+                                        const TextStyle(
                                       fontSize: 18,
-                                      color: Colors.black54,
+                                      color: Colors
+                                          .black54,
                                     ),
                                   ),
                                 ],
@@ -273,44 +482,78 @@ class _OrdemServicoDetalheState extends State<OrdemServicoDetalhe> {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 20),
+
+                        const SizedBox(
+                          height: 20,
+                        ),
+
                         Wrap(
                           spacing: 10,
                           runSpacing: 10,
+
                           children: [
                             Chip(
                               backgroundColor:
-                                  corStatus.withValues(alpha: 0.12),
+                                  corStatus
+                                      .withValues(
+                                alpha: 0.12,
+                              ),
+
                               label: Text(
                                 _ordem.status,
-                                style: TextStyle(
-                                  color: corStatus,
-                                  fontWeight: FontWeight.bold,
+                                style:
+                                    TextStyle(
+                                  color:
+                                      corStatus,
+                                  fontWeight:
+                                      FontWeight
+                                          .bold,
                                 ),
                               ),
                             ),
+
                             Chip(
                               avatar: Icon(
-                                Icons.priority_high,
+                                Icons
+                                    .priority_high,
                                 size: 18,
-                                color: corPrioridade,
+                                color:
+                                    corPrioridade,
                               ),
+
                               backgroundColor:
-                                  corPrioridade.withValues(alpha: 0.12),
+                                  corPrioridade
+                                      .withValues(
+                                alpha: 0.12,
+                              ),
+
                               label: Text(
-                                _ordem.prioridade,
-                                style: TextStyle(
-                                  color: corPrioridade,
-                                  fontWeight: FontWeight.bold,
+                                _ordem
+                                    .prioridade,
+                                style:
+                                    TextStyle(
+                                  color:
+                                      corPrioridade,
+                                  fontWeight:
+                                      FontWeight
+                                          .bold,
                                 ),
                               ),
                             ),
+
                             Chip(
-                              avatar: const Icon(
-                                Icons.calendar_today,
+                              avatar:
+                                  const Icon(
+                                Icons
+                                    .calendar_today,
                                 size: 18,
                               ),
-                              label: Text(_formatarData(_ordem.data)),
+
+                              label: Text(
+                                _formatarData(
+                                  _ordem.data,
+                                ),
+                              ),
                             ),
                           ],
                         ),
@@ -318,74 +561,153 @@ class _OrdemServicoDetalheState extends State<OrdemServicoDetalhe> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 18),
-                _secao(
-                  titulo: 'Descrição do serviço',
-                  icon: Icons.description_outlined,
-                  conteudo: _ordem.descricao,
+
+                const SizedBox(
+                  height: 18,
                 ),
-                const SizedBox(height: 18),
+
                 _secao(
-                  titulo: 'Técnico responsável',
-                  icon: Icons.engineering_outlined,
+                  titulo:
+                      'Descrição do serviço',
+                  icon: Icons
+                      .description_outlined,
                   conteudo:
-                      _ordem.tecnico.isEmpty ? 'Não informado' : _ordem.tecnico,
+                      _ordem.descricao,
                 ),
-                const SizedBox(height: 18),
+
+                const SizedBox(
+                  height: 18,
+                ),
+
+                _secao(
+                  titulo:
+                      'Técnico responsável',
+                  icon: Icons
+                      .engineering_outlined,
+                  conteudo:
+                      _ordem.tecnico.isEmpty
+                          ? 'Não informado'
+                          : _ordem
+                              .tecnico,
+                ),
+
+                const SizedBox(
+                  height: 18,
+                ),
+
                 _secao(
                   titulo: 'Observações',
-                  icon: Icons.notes_outlined,
-                  conteudo: _ordem.observacoes.isEmpty
-                      ? 'Nenhuma observação registrada.'
-                      : _ordem.observacoes,
+                  icon:
+                      Icons.notes_outlined,
+                  conteudo:
+                      _ordem.observacoes
+                              .isEmpty
+                          ? 'Nenhuma observação registrada.'
+                          : _ordem
+                              .observacoes,
                 ),
-                const SizedBox(height: 18),
+
+                const SizedBox(
+                  height: 18,
+                ),
+
                 _cardFotos(),
-                if (_ordem.orcamentoId != null) ...[
-                  const SizedBox(height: 18),
+
+                if (_ordem.orcamentoId !=
+                    null) ...[
+                  const SizedBox(
+                    height: 18,
+                  ),
+
                   _secao(
                     titulo: 'Origem',
-                    icon: Icons.request_quote_outlined,
+                    icon: Icons
+                        .request_quote_outlined,
                     conteudo:
                         'Ordem de Serviço gerada a partir de um orçamento.',
                   ),
                 ],
-                const SizedBox(height: 24),
+
+                const SizedBox(
+                  height: 24,
+                ),
+
                 Wrap(
                   spacing: 12,
                   runSpacing: 12,
+
                   children: [
                     FilledButton.icon(
-                      style: FilledButton.styleFrom(
-                        backgroundColor: const Color(0xFFE30613),
+                      style:
+                          FilledButton
+                              .styleFrom(
+                        backgroundColor:
+                            const Color(
+                          0xFFE30613,
+                        ),
                       ),
-                      onPressed: _gerandoPdf ? null : _gerarPdf,
+
+                      onPressed:
+                          _gerandoPdf
+                              ? null
+                              : _gerarPdf,
+
                       icon: _gerandoPdf
                           ? const SizedBox(
                               width: 18,
                               height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
+                              child:
+                                  CircularProgressIndicator(
+                                strokeWidth:
+                                    2,
+                                color: Colors
+                                    .white,
                               ),
                             )
-                          : const Icon(Icons.picture_as_pdf),
+                          : const Icon(
+                              Icons
+                                  .picture_as_pdf,
+                            ),
+
                       label: Text(
-                        _gerandoPdf ? 'Gerando PDF...' : 'Gerar PDF',
+                        _gerandoPdf
+                            ? 'Gerando PDF...'
+                            : 'Gerar PDF',
                       ),
                     ),
+
                     FilledButton.icon(
-                      onPressed: () => _alterarStatus('Em andamento'),
-                      icon: const Icon(Icons.play_arrow),
-                      label: const Text('Iniciar serviço'),
-                    ),
-                    FilledButton.icon(
-                      style: FilledButton.styleFrom(
-                        backgroundColor: Colors.green,
+                      onPressed: () {
+                        _alterarStatus(
+                          'Em andamento',
+                        );
+                      },
+                      icon: const Icon(
+                        Icons.play_arrow,
                       ),
-                      onPressed: () => _alterarStatus('Concluída'),
-                      icon: const Icon(Icons.check),
-                      label: const Text('Concluir serviço'),
+                      label: const Text(
+                        'Iniciar serviço',
+                      ),
+                    ),
+
+                    FilledButton.icon(
+                      style:
+                          FilledButton
+                              .styleFrom(
+                        backgroundColor:
+                            Colors.green,
+                      ),
+                      onPressed: () {
+                        _alterarStatus(
+                          'Concluída',
+                        );
+                      },
+                      icon: const Icon(
+                        Icons.check,
+                      ),
+                      label: const Text(
+                        'Concluir serviço',
+                      ),
                     ),
                   ],
                 ),
@@ -400,63 +722,135 @@ class _OrdemServicoDetalheState extends State<OrdemServicoDetalhe> {
   Widget _cardFotos() {
     return Card(
       elevation: 1,
+
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius:
+            BorderRadius.circular(14),
       ),
+
       child: Padding(
-        padding: const EdgeInsets.all(18),
+        padding:
+            const EdgeInsets.all(18),
+
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment:
+              CrossAxisAlignment.start,
+
           children: [
             const Row(
               children: [
                 Icon(
                   Icons.photo_library,
-                  color: Color(0xFFE30613),
+                  color:
+                      Color(0xFFE30613),
                 ),
-                SizedBox(width: 10),
+                SizedBox(
+                  width: 10,
+                ),
                 Text(
                   'Fotos do Serviço',
                   style: TextStyle(
                     fontSize: 17,
-                    fontWeight: FontWeight.bold,
+                    fontWeight:
+                        FontWeight.bold,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 20),
-            FilledButton.icon(
-              onPressed: () => _adicionarFoto(antes: true),
-              icon: const Icon(Icons.add_a_photo),
-              label: const Text('Adicionar foto ANTES'),
+
+            const SizedBox(
+              height: 20,
             ),
-            const SizedBox(height: 10),
+
+            FilledButton.icon(
+              onPressed:
+                  _salvandoFotos
+                      ? null
+                      : () {
+                          _adicionarFoto(
+                            antes: true,
+                          );
+                        },
+              icon: const Icon(
+                Icons.add_a_photo,
+              ),
+              label: const Text(
+                'Adicionar foto ANTES',
+              ),
+            ),
+
+            const SizedBox(
+              height: 10,
+            ),
+
             Text(
               '${_ordem.fotosAntes.length} foto(s)',
-              style: const TextStyle(color: Colors.grey),
+              style: const TextStyle(
+                color: Colors.grey,
+              ),
             ),
+
             _listaFotos(
-              fotos: _ordem.fotosAntes,
+              fotos:
+                  _ordem.fotosAntes,
               antes: true,
             ),
-            const Divider(height: 35),
-            FilledButton.icon(
-              style: FilledButton.styleFrom(
-                backgroundColor: Colors.green,
-              ),
-              onPressed: () => _adicionarFoto(antes: false),
-              icon: const Icon(Icons.add_a_photo),
-              label: const Text('Adicionar foto DEPOIS'),
+
+            const Divider(
+              height: 35,
             ),
-            const SizedBox(height: 10),
+
+            FilledButton.icon(
+              style:
+                  FilledButton.styleFrom(
+                backgroundColor:
+                    Colors.green,
+              ),
+
+              onPressed:
+                  _salvandoFotos
+                      ? null
+                      : () {
+                          _adicionarFoto(
+                            antes: false,
+                          );
+                        },
+
+              icon: const Icon(
+                Icons.add_a_photo,
+              ),
+
+              label: const Text(
+                'Adicionar foto DEPOIS',
+              ),
+            ),
+
+            const SizedBox(
+              height: 10,
+            ),
+
             Text(
               '${_ordem.fotosDepois.length} foto(s)',
-              style: const TextStyle(color: Colors.grey),
+              style: const TextStyle(
+                color: Colors.grey,
+              ),
             ),
+
             _listaFotos(
-              fotos: _ordem.fotosDepois,
+              fotos:
+                  _ordem.fotosDepois,
               antes: false,
             ),
+
+            if (_salvandoFotos) ...[
+              const SizedBox(
+                height: 18,
+              ),
+              const LinearProgressIndicator(
+                color:
+                    Color(0xFFE30613),
+              ),
+            ],
           ],
         ),
       ),
@@ -469,26 +863,39 @@ class _OrdemServicoDetalheState extends State<OrdemServicoDetalhe> {
   }) {
     if (fotos.isEmpty) {
       return const Padding(
-        padding: EdgeInsets.only(top: 10),
+        padding:
+            EdgeInsets.only(
+          top: 10,
+        ),
         child: Text(
           'Nenhuma foto adicionada.',
-          style: TextStyle(color: Colors.black45),
+          style: TextStyle(
+            color: Colors.black45,
+          ),
         ),
       );
     }
 
     return Padding(
-      padding: const EdgeInsets.only(top: 12),
+      padding:
+          const EdgeInsets.only(
+        top: 12,
+      ),
+
       child: Wrap(
         spacing: 10,
         runSpacing: 10,
+
         children: List.generate(
           fotos.length,
           (index) {
             return Stack(
               children: [
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius:
+                      BorderRadius
+                          .circular(10),
+
                   child: Image.memory(
                     fotos[index],
                     width: 130,
@@ -496,26 +903,45 @@ class _OrdemServicoDetalheState extends State<OrdemServicoDetalhe> {
                     fit: BoxFit.cover,
                   ),
                 ),
+
                 Positioned(
                   top: 4,
                   right: 4,
+
                   child: Material(
-                    color: Colors.black54,
-                    shape: const CircleBorder(),
+                    color:
+                        Colors.black54,
+                    shape:
+                        const CircleBorder(),
+
                     child: InkWell(
-                      customBorder: const CircleBorder(),
-                      onTap: () {
-                        _removerFoto(
-                          antes: antes,
-                          indiceFoto: index,
-                        );
-                      },
-                      child: const Padding(
-                        padding: EdgeInsets.all(5),
+                      customBorder:
+                          const CircleBorder(),
+
+                      onTap:
+                          _salvandoFotos
+                              ? null
+                              : () {
+                                  _removerFoto(
+                                    antes:
+                                        antes,
+                                    indiceFoto:
+                                        index,
+                                  );
+                                },
+
+                      child:
+                          const Padding(
+                        padding:
+                            EdgeInsets.all(
+                          5,
+                        ),
+
                         child: Icon(
                           Icons.close,
                           size: 17,
-                          color: Colors.white,
+                          color:
+                              Colors.white,
                         ),
                       ),
                     ),
@@ -536,35 +962,59 @@ class _OrdemServicoDetalheState extends State<OrdemServicoDetalhe> {
   }) {
     return Card(
       elevation: 1,
+
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius:
+            BorderRadius.circular(14),
       ),
+
       child: Padding(
-        padding: const EdgeInsets.all(18),
+        padding:
+            const EdgeInsets.all(18),
+
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment:
+              CrossAxisAlignment.start,
+
           children: [
             Icon(
               icon,
-              color: const Color(0xFFE30613),
+              color:
+                  const Color(
+                0xFFE30613,
+              ),
               size: 28,
             ),
-            const SizedBox(width: 14),
+
+            const SizedBox(
+              width: 14,
+            ),
+
             Expanded(
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment:
+                    CrossAxisAlignment
+                        .start,
+
                 children: [
                   Text(
                     titulo,
-                    style: const TextStyle(
+                    style:
+                        const TextStyle(
                       fontSize: 17,
-                      fontWeight: FontWeight.bold,
+                      fontWeight:
+                          FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(height: 8),
+
+                  const SizedBox(
+                    height: 8,
+                  ),
+
                   Text(
                     conteudo,
-                    style: const TextStyle(
+                    style:
+                        const TextStyle(
                       fontSize: 15,
                       height: 1.4,
                     ),

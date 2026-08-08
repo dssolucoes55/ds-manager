@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../models/cliente.dart';
+import '../../services/cliente_service.dart';
+
 class ClientesPage extends StatefulWidget {
   const ClientesPage({super.key});
 
@@ -10,43 +13,7 @@ class ClientesPage extends StatefulWidget {
 class _ClientesPageState extends State<ClientesPage> {
   final TextEditingController _pesquisaController = TextEditingController();
 
-  final List<ClienteLocal> _clientes = [
-    ClienteLocal(
-      nome: 'Condomínio Leonardo da Vinci',
-      responsavel: 'Administração',
-      telefone: '(85) 99999-9999',
-      email: 'administracao@condominio.com',
-    ),
-    ClienteLocal(
-      nome: 'Shopping Central',
-      responsavel: 'Setor de Manutenção',
-      telefone: '(85) 98888-8888',
-      email: 'manutencao@shopping.com',
-    ),
-    ClienteLocal(
-      nome: 'Empresa ABC',
-      responsavel: 'Carlos',
-      telefone: '(85) 97777-7777',
-      email: 'carlos@empresaabc.com',
-    ),
-  ];
-
   String _pesquisa = '';
-
-  List<ClienteLocal> get _clientesFiltrados {
-    if (_pesquisa.trim().isEmpty) {
-      return _clientes;
-    }
-
-    final texto = _pesquisa.toLowerCase();
-
-    return _clientes.where((cliente) {
-      return cliente.nome.toLowerCase().contains(texto) ||
-          cliente.responsavel.toLowerCase().contains(texto) ||
-          cliente.telefone.toLowerCase().contains(texto) ||
-          cliente.email.toLowerCase().contains(texto);
-    }).toList();
-  }
 
   @override
   void dispose() {
@@ -54,40 +21,71 @@ class _ClientesPageState extends State<ClientesPage> {
     super.dispose();
   }
 
+  List<Cliente> _filtrarClientes(List<Cliente> clientes) {
+    final texto = _pesquisa.trim().toLowerCase();
+
+    if (texto.isEmpty) {
+      return clientes;
+    }
+
+    return clientes.where((cliente) {
+      return cliente.nome.toLowerCase().contains(texto) ||
+          cliente.responsavel.toLowerCase().contains(texto) ||
+          cliente.telefone.toLowerCase().contains(texto) ||
+          cliente.whatsapp.toLowerCase().contains(texto) ||
+          cliente.email.toLowerCase().contains(texto) ||
+          cliente.documento.toLowerCase().contains(texto);
+    }).toList();
+  }
+
   Future<void> _abrirFormulario({
-    ClienteLocal? cliente,
-    int? indice,
+    Cliente? cliente,
   }) async {
-    final resultado = await showDialog<ClienteLocal>(
+    final resultado = await showDialog<Cliente>(
       context: context,
       barrierDismissible: false,
-      builder: (_) => _ClienteFormDialog(cliente: cliente),
+      builder: (_) => _ClienteFormDialog(
+        cliente: cliente,
+      ),
     );
 
     if (!mounted || resultado == null) {
       return;
     }
 
-    setState(() {
-      if (indice == null) {
-        _clientes.add(resultado);
+    try {
+      if (cliente == null) {
+        await ClienteService.adicionar(resultado);
       } else {
-        _clientes[indice] = resultado;
+        await ClienteService.atualizar(resultado);
       }
-    });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          indice == null
-              ? 'Cliente cadastrado com sucesso.'
-              : 'Cliente atualizado com sucesso.',
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            cliente == null
+                ? 'Cliente cadastrado com sucesso.'
+                : 'Cliente atualizado com sucesso.',
+          ),
         ),
-      ),
-    );
+      );
+    } catch (erro) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: Colors.red,
+          content: Text(
+            'Erro ao salvar cliente: $erro',
+          ),
+        ),
+      );
+    }
   }
 
-  Future<void> _excluirCliente(ClienteLocal cliente) async {
+  Future<void> _excluirCliente(Cliente cliente) async {
     final confirmar = await showDialog<bool>(
       context: context,
       builder: (dialogContext) {
@@ -121,21 +119,34 @@ class _ClientesPageState extends State<ClientesPage> {
       return;
     }
 
-    setState(() {
-      _clientes.remove(cliente);
-    });
+    try {
+      await ClienteService.remover(cliente);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Cliente excluído com sucesso.'),
-      ),
-    );
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Cliente excluído com sucesso.',
+          ),
+        ),
+      );
+    } catch (erro) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: Colors.red,
+          content: Text(
+            'Erro ao excluir cliente: $erro',
+          ),
+        ),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final clientesFiltrados = _clientesFiltrados;
-
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
       appBar: AppBar(
@@ -146,7 +157,7 @@ class _ClientesPageState extends State<ClientesPage> {
       floatingActionButton: FloatingActionButton.extended(
         backgroundColor: const Color(0xFFE30613),
         foregroundColor: Colors.white,
-        onPressed: _abrirFormulario,
+        onPressed: () => _abrirFormulario(),
         icon: const Icon(Icons.add),
         label: const Text('Novo cliente'),
       ),
@@ -169,6 +180,7 @@ class _ClientesPageState extends State<ClientesPage> {
                         tooltip: 'Limpar pesquisa',
                         onPressed: () {
                           _pesquisaController.clear();
+
                           setState(() {
                             _pesquisa = '';
                           });
@@ -184,10 +196,40 @@ class _ClientesPageState extends State<ClientesPage> {
                 ),
               ),
             ),
+
             const SizedBox(height: 20),
+
             Expanded(
-              child: clientesFiltrados.isEmpty
-                  ? const Center(
+              child: StreamBuilder<List<Cliente>>(
+                stream: ClienteService.observarClientes(),
+                builder: (context, snapshot) {
+                  if (snapshot.hasError) {
+                    return Center(
+                      child: Text(
+                        'Erro ao carregar clientes:\n${snapshot.error}',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Colors.red,
+                        ),
+                      ),
+                    );
+                  }
+
+                  if (snapshot.connectionState ==
+                          ConnectionState.waiting &&
+                      !snapshot.hasData) {
+                    return const Center(
+                      child: CircularProgressIndicator(
+                        color: Color(0xFFE30613),
+                      ),
+                    );
+                  }
+
+                  final clientes =
+                      _filtrarClientes(snapshot.data ?? []);
+
+                  if (clientes.isEmpty) {
+                    return const Center(
                       child: Text(
                         'Nenhum cliente encontrado.',
                         style: TextStyle(
@@ -195,27 +237,29 @@ class _ClientesPageState extends State<ClientesPage> {
                           color: Colors.grey,
                         ),
                       ),
-                    )
-                  : ListView.builder(
-                      itemCount: clientesFiltrados.length,
-                      itemBuilder: (context, index) {
-                        final cliente = clientesFiltrados[index];
-                        final indiceOriginal = _clientes.indexOf(cliente);
+                    );
+                  }
 
-                        return _ClienteCard(
-                          cliente: cliente,
-                          onEditar: () {
-                            _abrirFormulario(
-                              cliente: cliente,
-                              indice: indiceOriginal,
-                            );
-                          },
-                          onExcluir: () {
-                            _excluirCliente(cliente);
-                          },
-                        );
-                      },
-                    ),
+                  return ListView.builder(
+                    itemCount: clientes.length,
+                    itemBuilder: (context, index) {
+                      final cliente = clientes[index];
+
+                      return _ClienteCard(
+                        cliente: cliente,
+                        onEditar: () {
+                          _abrirFormulario(
+                            cliente: cliente,
+                          );
+                        },
+                        onExcluir: () {
+                          _excluirCliente(cliente);
+                        },
+                      );
+                    },
+                  );
+                },
+              ),
             ),
           ],
         ),
@@ -224,63 +268,88 @@ class _ClientesPageState extends State<ClientesPage> {
   }
 }
 
-class ClienteLocal {
-  final String nome;
-  final String responsavel;
-  final String telefone;
-  final String email;
-
-  const ClienteLocal({
-    required this.nome,
-    required this.responsavel,
-    required this.telefone,
-    required this.email,
-  });
-}
-
 class _ClienteFormDialog extends StatefulWidget {
-  final ClienteLocal? cliente;
+  final Cliente? cliente;
 
   const _ClienteFormDialog({
     this.cliente,
   });
 
   @override
-  State<_ClienteFormDialog> createState() => _ClienteFormDialogState();
+  State<_ClienteFormDialog> createState() =>
+      _ClienteFormDialogState();
 }
 
-class _ClienteFormDialogState extends State<_ClienteFormDialog> {
-  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+class _ClienteFormDialogState
+    extends State<_ClienteFormDialog> {
+  final GlobalKey<FormState> _formKey =
+      GlobalKey<FormState>();
 
   late final TextEditingController _nomeController;
+  late final TextEditingController _documentoController;
   late final TextEditingController _responsavelController;
   late final TextEditingController _telefoneController;
+  late final TextEditingController _whatsappController;
   late final TextEditingController _emailController;
+  late final TextEditingController _enderecoController;
+  late final TextEditingController _observacoesController;
+
+  String _tipo = 'Condomínio';
 
   @override
   void initState() {
     super.initState();
 
+    final cliente = widget.cliente;
+
     _nomeController = TextEditingController(
-      text: widget.cliente?.nome ?? '',
+      text: cliente?.nome ?? '',
     );
+
+    _documentoController = TextEditingController(
+      text: cliente?.documento ?? '',
+    );
+
     _responsavelController = TextEditingController(
-      text: widget.cliente?.responsavel ?? '',
+      text: cliente?.responsavel ?? '',
     );
+
     _telefoneController = TextEditingController(
-      text: widget.cliente?.telefone ?? '',
+      text: cliente?.telefone ?? '',
     );
+
+    _whatsappController = TextEditingController(
+      text: cliente?.whatsapp ?? '',
+    );
+
     _emailController = TextEditingController(
-      text: widget.cliente?.email ?? '',
+      text: cliente?.email ?? '',
     );
+
+    _enderecoController = TextEditingController(
+      text: cliente?.endereco ?? '',
+    );
+
+    _observacoesController = TextEditingController(
+      text: cliente?.observacoes ?? '',
+    );
+
+    if (cliente != null && cliente.tipo.isNotEmpty) {
+      _tipo = cliente.tipo;
+    }
   }
 
   @override
   void dispose() {
     _nomeController.dispose();
+    _documentoController.dispose();
     _responsavelController.dispose();
     _telefoneController.dispose();
+    _whatsappController.dispose();
     _emailController.dispose();
+    _enderecoController.dispose();
+    _observacoesController.dispose();
+
     super.dispose();
   }
 
@@ -289,24 +358,32 @@ class _ClienteFormDialogState extends State<_ClienteFormDialog> {
       return;
     }
 
-    Navigator.of(context).pop(
-      ClienteLocal(
-        nome: _nomeController.text.trim(),
-        responsavel: _responsavelController.text.trim(),
-        telefone: _telefoneController.text.trim(),
-        email: _emailController.text.trim(),
-      ),
+    final cliente = Cliente(
+      id: widget.cliente?.id ?? '',
+      nome: _nomeController.text.trim(),
+      tipo: _tipo,
+      documento: _documentoController.text.trim(),
+      responsavel: _responsavelController.text.trim(),
+      telefone: _telefoneController.text.trim(),
+      whatsapp: _whatsappController.text.trim(),
+      email: _emailController.text.trim(),
+      endereco: _enderecoController.text.trim(),
+      observacoes: _observacoesController.text.trim(),
     );
+
+    Navigator.of(context).pop(cliente);
   }
 
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
       title: Text(
-        widget.cliente == null ? 'Novo cliente' : 'Editar cliente',
+        widget.cliente == null
+            ? 'Novo cliente'
+            : 'Editar cliente',
       ),
       content: SizedBox(
-        width: 500,
+        width: 550,
         child: SingleChildScrollView(
           child: Form(
             key: _formKey,
@@ -316,18 +393,72 @@ class _ClienteFormDialogState extends State<_ClienteFormDialog> {
                 TextFormField(
                   controller: _nomeController,
                   decoration: const InputDecoration(
-                    labelText: 'Nome, empresa ou condomínio',
+                    labelText:
+                        'Nome, empresa ou condomínio',
                     prefixIcon: Icon(Icons.business),
                     border: OutlineInputBorder(),
                   ),
                   validator: (valor) {
-                    if (valor == null || valor.trim().isEmpty) {
+                    if (valor == null ||
+                        valor.trim().isEmpty) {
                       return 'Informe o nome do cliente.';
                     }
+
                     return null;
                   },
                 ),
+
                 const SizedBox(height: 16),
+
+                DropdownButtonFormField<String>(
+                  initialValue: _tipo,
+                  decoration: const InputDecoration(
+                    labelText: 'Tipo de cliente',
+                    prefixIcon:
+                        Icon(Icons.category_outlined),
+                    border: OutlineInputBorder(),
+                  ),
+                  items: const [
+                    DropdownMenuItem(
+                      value: 'Condomínio',
+                      child: Text('Condomínio'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'Empresa',
+                      child: Text('Empresa'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'Pessoa Física',
+                      child: Text('Pessoa Física'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'Outro',
+                      child: Text('Outro'),
+                    ),
+                  ],
+                  onChanged: (valor) {
+                    if (valor != null) {
+                      setState(() {
+                        _tipo = valor;
+                      });
+                    }
+                  },
+                ),
+
+                const SizedBox(height: 16),
+
+                TextFormField(
+                  controller: _documentoController,
+                  decoration: const InputDecoration(
+                    labelText: 'CPF / CNPJ',
+                    prefixIcon:
+                        Icon(Icons.badge_outlined),
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
                 TextFormField(
                   controller: _responsavelController,
                   decoration: const InputDecoration(
@@ -336,23 +467,66 @@ class _ClienteFormDialogState extends State<_ClienteFormDialog> {
                     border: OutlineInputBorder(),
                   ),
                 ),
+
                 const SizedBox(height: 16),
+
                 TextFormField(
                   controller: _telefoneController,
                   keyboardType: TextInputType.phone,
                   decoration: const InputDecoration(
-                    labelText: 'Telefone ou WhatsApp',
+                    labelText: 'Telefone',
                     prefixIcon: Icon(Icons.phone),
                     border: OutlineInputBorder(),
                   ),
                 ),
+
                 const SizedBox(height: 16),
+
+                TextFormField(
+                  controller: _whatsappController,
+                  keyboardType: TextInputType.phone,
+                  decoration: const InputDecoration(
+                    labelText: 'WhatsApp',
+                    prefixIcon:
+                        Icon(Icons.chat_outlined),
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
                 TextFormField(
                   controller: _emailController,
-                  keyboardType: TextInputType.emailAddress,
+                  keyboardType:
+                      TextInputType.emailAddress,
                   decoration: const InputDecoration(
                     labelText: 'E-mail',
                     prefixIcon: Icon(Icons.email),
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                TextFormField(
+                  controller: _enderecoController,
+                  decoration: const InputDecoration(
+                    labelText: 'Endereço',
+                    prefixIcon:
+                        Icon(Icons.location_on_outlined),
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                TextFormField(
+                  controller: _observacoesController,
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                    labelText: 'Observações',
+                    prefixIcon:
+                        Icon(Icons.description_outlined),
                     border: OutlineInputBorder(),
                   ),
                 ),
@@ -369,6 +543,10 @@ class _ClienteFormDialogState extends State<_ClienteFormDialog> {
           child: const Text('Cancelar'),
         ),
         FilledButton.icon(
+          style: FilledButton.styleFrom(
+            backgroundColor:
+                const Color(0xFFE30613),
+          ),
           onPressed: _salvar,
           icon: const Icon(Icons.save),
           label: const Text('Salvar'),
@@ -379,7 +557,7 @@ class _ClienteFormDialogState extends State<_ClienteFormDialog> {
 }
 
 class _ClienteCard extends StatelessWidget {
-  final ClienteLocal cliente;
+  final Cliente cliente;
   final VoidCallback onEditar;
   final VoidCallback onExcluir;
 
@@ -409,47 +587,47 @@ class _ClienteCard extends StatelessWidget {
         subtitle: Padding(
           padding: const EdgeInsets.only(top: 6),
           child: Text(
+            'Tipo: ${cliente.tipo.isEmpty ? "Não informado" : cliente.tipo}\n'
             'Responsável: ${cliente.responsavel.isEmpty ? "Não informado" : cliente.responsavel}\n'
             'Telefone: ${cliente.telefone.isEmpty ? "Não informado" : cliente.telefone}\n'
             'E-mail: ${cliente.email.isEmpty ? "Não informado" : cliente.email}',
           ),
         ),
-        isThreeLine: true,
         trailing: PopupMenuButton<String>(
           onSelected: (opcao) {
             if (opcao == 'editar') {
               onEditar();
-            } else if (opcao == 'excluir') {
+            }
+
+            if (opcao == 'excluir') {
               onExcluir();
             }
           },
-          itemBuilder: (context) {
-            return const [
-              PopupMenuItem(
-                value: 'editar',
-                child: Row(
-                  children: [
-                    Icon(Icons.edit),
-                    SizedBox(width: 10),
-                    Text('Editar'),
-                  ],
-                ),
+          itemBuilder: (context) => const [
+            PopupMenuItem(
+              value: 'editar',
+              child: Row(
+                children: [
+                  Icon(Icons.edit),
+                  SizedBox(width: 10),
+                  Text('Editar'),
+                ],
               ),
-              PopupMenuItem(
-                value: 'excluir',
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.delete,
-                      color: Colors.red,
-                    ),
-                    SizedBox(width: 10),
-                    Text('Excluir'),
-                  ],
-                ),
+            ),
+            PopupMenuItem(
+              value: 'excluir',
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.delete,
+                    color: Colors.red,
+                  ),
+                  SizedBox(width: 10),
+                  Text('Excluir'),
+                ],
               ),
-            ];
-          },
+            ),
+          ],
         ),
       ),
     );
