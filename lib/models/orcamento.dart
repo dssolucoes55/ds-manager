@@ -8,7 +8,7 @@ class Orcamento {
   final String descricao;
   final bool convertidoEmOs;
 
-  Orcamento({
+  const Orcamento({
     required this.id,
     required this.numero,
     required this.cliente,
@@ -38,6 +38,47 @@ class Orcamento {
       status: status ?? this.status,
       descricao: descricao ?? this.descricao,
       convertidoEmOs: convertidoEmOs ?? this.convertidoEmOs,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'numero': numero,
+      'cliente': cliente,
+      'data': data.millisecondsSinceEpoch,
+      'valor': valor,
+      'status': status,
+      'descricao': descricao,
+      'convertidoEmOs': convertidoEmOs,
+    };
+  }
+
+  factory Orcamento.fromMap(
+    String id,
+    Map<String, dynamic> map,
+  ) {
+    return Orcamento(
+      id: id,
+      numero: map['numero']?.toString() ?? '',
+      cliente: map['cliente']?.toString() ?? '',
+      data: DateTime.fromMillisecondsSinceEpoch(
+        map['data'] is int
+            ? map['data'] as int
+            : int.tryParse(
+                  map['data']?.toString() ?? '',
+                ) ??
+                DateTime.now().millisecondsSinceEpoch,
+      ),
+      valor: map['valor'] is num
+          ? (map['valor'] as num).toDouble()
+          : double.tryParse(
+                map['valor']?.toString() ?? '',
+              ) ??
+              0,
+      status: map['status']?.toString() ?? 'Aguardando',
+      descricao: map['descricao']?.toString() ?? '',
+      convertidoEmOs:
+          map['convertidoEmOs'] == true,
     );
   }
 }

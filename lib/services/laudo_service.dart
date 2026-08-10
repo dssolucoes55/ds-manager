@@ -1,30 +1,30 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-import '../models/orcamento.dart';
+import '../models/laudo.dart';
 
-class OrcamentoService {
+class LaudoService {
   static final FirebaseFirestore _firestore =
       FirebaseFirestore.instance;
 
   static final CollectionReference<Map<String, dynamic>>
-      _orcamentosRef =
-      _firestore.collection('orcamentos');
+      _laudosRef =
+      _firestore.collection('laudos');
 
-  static final List<Orcamento> orcamentos = [];
+  static final List<Laudo> laudos = [];
 
-  static Stream<List<Orcamento>> observarOrcamentos() {
-    return _orcamentosRef
+  static Stream<List<Laudo>> observarLaudos() {
+    return _laudosRef
         .orderBy('data', descending: true)
         .snapshots()
         .map((snapshot) {
       final lista = snapshot.docs.map((doc) {
-        return Orcamento.fromMap(
+        return Laudo.fromMap(
           doc.id,
           doc.data(),
         );
       }).toList();
 
-      orcamentos
+      laudos
         ..clear()
         ..addAll(lista);
 
@@ -32,19 +32,19 @@ class OrcamentoService {
     });
   }
 
-  static Future<List<Orcamento>> carregarOrcamentos() async {
-    final snapshot = await _orcamentosRef
+  static Future<List<Laudo>> carregarLaudos() async {
+    final snapshot = await _laudosRef
         .orderBy('data', descending: true)
         .get();
 
     final lista = snapshot.docs.map((doc) {
-      return Orcamento.fromMap(
+      return Laudo.fromMap(
         doc.id,
         doc.data(),
       );
     }).toList();
 
-    orcamentos
+    laudos
       ..clear()
       ..addAll(lista);
 
@@ -52,50 +52,46 @@ class OrcamentoService {
   }
 
   static Future<void> adicionar(
-    Orcamento orcamento,
+    Laudo laudo,
   ) async {
-    final doc = _orcamentosRef.doc();
+    final doc = _laudosRef.doc();
 
-    final novoOrcamento = orcamento.copyWith(
+    final novoLaudo = laudo.copyWith(
       id: doc.id,
     );
 
     await doc.set(
-      novoOrcamento.toMap(),
+      novoLaudo.toMap(),
     );
   }
 
   static Future<void> atualizar(
-    Orcamento orcamento,
+    Laudo laudo,
   ) async {
-    await _orcamentosRef
-        .doc(orcamento.id)
-        .update(orcamento.toMap());
+    await _laudosRef
+        .doc(laudo.id)
+        .update(laudo.toMap());
   }
 
   static Future<void> remover(
-    Orcamento orcamento,
+    Laudo laudo,
   ) async {
-    await _orcamentosRef
-        .doc(orcamento.id)
+    await _laudosRef
+        .doc(laudo.id)
         .delete();
-  }
-
-  static String gerarId() {
-    return _orcamentosRef.doc().id;
   }
 
   static Future<String> gerarNumero() async {
     final ano = DateTime.now().year;
 
-    final snapshot = await _orcamentosRef
+    final snapshot = await _laudosRef
         .where(
           'numero',
-          isGreaterThanOrEqualTo: 'ORC-$ano-',
+          isGreaterThanOrEqualTo: 'LAU-$ano-',
         )
         .where(
           'numero',
-          isLessThan: 'ORC-${ano + 1}-',
+          isLessThan: 'LAU-${ano + 1}-',
         )
         .get();
 
@@ -122,6 +118,6 @@ class OrcamentoService {
             .toString()
             .padLeft(4, '0');
 
-    return 'ORC-$ano-$proximo';
+    return 'LAU-$ano-$proximo';
   }
 }

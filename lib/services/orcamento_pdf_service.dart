@@ -4,15 +4,16 @@ import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
-import '../models/ordem_servico.dart';
-import '../models/configuracao_empresa.dart';
+import '../models/orcamento.dart';
 import '../services/configuracao_service.dart';
 
-class PdfService {
-  static Future<Uint8List> gerarOrdemServico(
-    OrdemServico ordem,
+class OrcamentoPdfService {
+  static Future<Uint8List> gerarOrcamento(
+    Orcamento orcamento,
   ) async {
-    final configuracao = await ConfiguracaoService.carregar();
+    final configuracao =
+        await ConfiguracaoService.carregar();
+
     final pdf = pw.Document();
 
     final logoBytes = await rootBundle.load(
@@ -33,8 +34,12 @@ class PdfService {
           }
 
           return pw.Container(
-            margin: const pw.EdgeInsets.only(bottom: 20),
-            padding: const pw.EdgeInsets.only(bottom: 8),
+            margin: const pw.EdgeInsets.only(
+              bottom: 20,
+            ),
+            padding: const pw.EdgeInsets.only(
+              bottom: 8,
+            ),
             decoration: const pw.BoxDecoration(
               border: pw.Border(
                 bottom: pw.BorderSide(
@@ -43,23 +48,31 @@ class PdfService {
               ),
             ),
             child: pw.Row(
-              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              mainAxisAlignment:
+                  pw.MainAxisAlignment.spaceBetween,
               children: [
                 pw.Text(
                   configuracao.nomeEmpresa,
                   style: pw.TextStyle(
-                    fontWeight: pw.FontWeight.bold,
+                    fontWeight:
+                        pw.FontWeight.bold,
                   ),
                 ),
-                pw.Text(ordem.numero),
+                pw.Text(
+                  orcamento.numero,
+                ),
               ],
             ),
           );
         },
         footer: (context) {
           return pw.Container(
-            margin: const pw.EdgeInsets.only(top: 20),
-            padding: const pw.EdgeInsets.only(top: 8),
+            margin: const pw.EdgeInsets.only(
+              top: 20,
+            ),
+            padding: const pw.EdgeInsets.only(
+              top: 8,
+            ),
             decoration: const pw.BoxDecoration(
               border: pw.Border(
                 top: pw.BorderSide(
@@ -68,7 +81,8 @@ class PdfService {
               ),
             ),
             child: pw.Row(
-              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              mainAxisAlignment:
+                  pw.MainAxisAlignment.spaceBetween,
               children: [
                 pw.Text(
                   configuracao.nomeEmpresa,
@@ -90,7 +104,8 @@ class PdfService {
         },
         build: (context) => [
           pw.Row(
-            crossAxisAlignment: pw.CrossAxisAlignment.center,
+            crossAxisAlignment:
+                pw.CrossAxisAlignment.center,
             children: [
               pw.Image(
                 logo,
@@ -99,50 +114,42 @@ class PdfService {
                 fit: pw.BoxFit.contain,
               ),
               pw.SizedBox(width: 20),
-              pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  pw.Text(
-                    configuracao.nomeEmpresa,
-                    style: pw.TextStyle(
-                      fontSize: 22,
-                      fontWeight: pw.FontWeight.bold,
-                    ),
-                  ),
-                  pw.SizedBox(height: 3),
-                  if (configuracao.cnpj.isNotEmpty)
+              pw.Expanded(
+                child: pw.Column(
+                  crossAxisAlignment:
+                      pw.CrossAxisAlignment.start,
+                  children: [
                     pw.Text(
-                      'CNPJ: ${configuracao.cnpj}',
-                      style: const pw.TextStyle(
-                        fontSize: 9,
-                        color: PdfColors.grey700,
+                      configuracao.nomeEmpresa,
+                      style: pw.TextStyle(
+                        fontSize: 22,
+                        fontWeight:
+                            pw.FontWeight.bold,
                       ),
                     ),
-                  if (configuracao.telefone.isNotEmpty)
-                    pw.Text(
-                      'Telefone: ${configuracao.telefone}',
-                      style: const pw.TextStyle(
-                        fontSize: 9,
-                        color: PdfColors.grey700,
+                    pw.SizedBox(height: 3),
+                    if (configuracao.cnpj.isNotEmpty)
+                      _textoCabecalho(
+                        'CNPJ: ${configuracao.cnpj}',
                       ),
-                    ),
-                  if (configuracao.email.isNotEmpty)
-                    pw.Text(
-                      configuracao.email,
-                      style: const pw.TextStyle(
-                        fontSize: 9,
-                        color: PdfColors.grey700,
+                    if (configuracao.telefone.isNotEmpty)
+                      _textoCabecalho(
+                        'Telefone: ${configuracao.telefone}',
                       ),
-                    ),
-                  if (configuracao.endereco.isNotEmpty)
-                    pw.Text(
-                      configuracao.endereco,
-                      style: const pw.TextStyle(
-                        fontSize: 9,
-                        color: PdfColors.grey700,
+                    if (configuracao.whatsapp.isNotEmpty)
+                      _textoCabecalho(
+                        'WhatsApp: ${configuracao.whatsapp}',
                       ),
-                    ),
-                ],
+                    if (configuracao.email.isNotEmpty)
+                      _textoCabecalho(
+                        configuracao.email,
+                      ),
+                    if (configuracao.endereco.isNotEmpty)
+                      _textoCabecalho(
+                        configuracao.endereco,
+                      ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -159,7 +166,7 @@ class PdfService {
               color: PdfColors.red,
             ),
             child: pw.Text(
-              'ORDEM DE SERVIÇO',
+              'ORÇAMENTO',
               style: pw.TextStyle(
                 color: PdfColors.white,
                 fontSize: 19,
@@ -176,20 +183,26 @@ class PdfService {
               border: pw.Border.all(
                 color: PdfColors.grey400,
               ),
-              borderRadius: pw.BorderRadius.circular(6),
+              borderRadius:
+                  pw.BorderRadius.circular(6),
             ),
             child: pw.Column(
               children: [
-                _linha('Número', ordem.numero),
-                _linha('Cliente', ordem.clienteNome),
-                _linha('Data', _data(ordem.data)),
-                _linha('Status', ordem.status),
-                _linha('Prioridade', ordem.prioridade),
                 _linha(
-                  'Técnico',
-                  ordem.tecnico.isEmpty
-                      ? 'Não informado'
-                      : ordem.tecnico,
+                  'Número',
+                  orcamento.numero,
+                ),
+                _linha(
+                  'Cliente',
+                  orcamento.cliente,
+                ),
+                _linha(
+                  'Data',
+                  _data(orcamento.data),
+                ),
+                _linha(
+                  'Status',
+                  orcamento.status,
                 ),
               ],
             ),
@@ -197,80 +210,128 @@ class PdfService {
 
           pw.SizedBox(height: 24),
 
-          _titulo('Descrição do serviço'),
+          _titulo('Descrição dos serviços'),
 
           pw.Container(
             width: double.infinity,
             padding: const pw.EdgeInsets.all(12),
             decoration: pw.BoxDecoration(
               color: PdfColors.grey100,
-              borderRadius: pw.BorderRadius.circular(5),
+              borderRadius:
+                  pw.BorderRadius.circular(5),
             ),
             child: pw.Text(
-              ordem.descricao,
+              orcamento.descricao.isEmpty
+                  ? 'Descrição não informada.'
+                  : orcamento.descricao,
               style: const pw.TextStyle(
                 lineSpacing: 3,
               ),
             ),
           ),
 
-          pw.SizedBox(height: 22),
+          pw.SizedBox(height: 24),
 
-          _titulo('Observações'),
+          _titulo('Valor do orçamento'),
+
+          pw.Container(
+            width: double.infinity,
+            padding: const pw.EdgeInsets.all(16),
+            decoration: pw.BoxDecoration(
+              border: pw.Border.all(
+                color: PdfColors.grey400,
+              ),
+              borderRadius:
+                  pw.BorderRadius.circular(5),
+            ),
+            child: pw.Row(
+              mainAxisAlignment:
+                  pw.MainAxisAlignment.spaceBetween,
+              children: [
+                pw.Text(
+                  'VALOR TOTAL',
+                  style: pw.TextStyle(
+                    fontSize: 14,
+                    fontWeight:
+                        pw.FontWeight.bold,
+                  ),
+                ),
+                pw.Text(
+                  _valor(orcamento.valor),
+                  style: pw.TextStyle(
+                    fontSize: 18,
+                    fontWeight:
+                        pw.FontWeight.bold,
+                    color: PdfColors.red,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          pw.SizedBox(height: 24),
+
+          _titulo('Condições gerais'),
 
           pw.Container(
             width: double.infinity,
             padding: const pw.EdgeInsets.all(12),
             decoration: pw.BoxDecoration(
               color: PdfColors.grey100,
-              borderRadius: pw.BorderRadius.circular(5),
+              borderRadius:
+                  pw.BorderRadius.circular(5),
             ),
-            child: pw.Text(
-              ordem.observacoes.isEmpty
-                  ? 'Nenhuma observação registrada.'
-                  : ordem.observacoes,
-              style: const pw.TextStyle(
-                lineSpacing: 3,
-              ),
+            child: pw.Column(
+              crossAxisAlignment:
+                  pw.CrossAxisAlignment.start,
+              children: [
+                pw.Text(
+                  '• Os serviços serão executados conforme a descrição apresentada neste orçamento.',
+                ),
+                pw.SizedBox(height: 5),
+                pw.Text(
+                  '• Alterações de escopo ou serviços adicionais deverão ser previamente aprovados.',
+                ),
+                pw.SizedBox(height: 5),
+                pw.Text(
+                  '• Materiais e condições não descritos neste orçamento deverão ser acordados separadamente.',
+                ),
+              ],
             ),
           ),
-
-          ..._secaoFotos(
-            titulo: 'FOTOS ANTES DO SERVIÇO',
-            fotos: ordem.fotosAntes,
-          ),
-
-          ..._secaoFotos(
-            titulo: 'FOTOS DEPOIS DO SERVIÇO',
-            fotos: ordem.fotosDepois,
-          ),
-
-          pw.SizedBox(height: 28),
 
           if (configuracao.responsavelTecnico.isNotEmpty ||
               configuracao.crea.isNotEmpty ||
               configuracao.artPadrao.isNotEmpty) ...[
+            pw.SizedBox(height: 24),
             _titulo('Responsável Técnico'),
             pw.Container(
               width: double.infinity,
-              padding: const pw.EdgeInsets.all(12),
+              padding:
+                  const pw.EdgeInsets.all(12),
               decoration: pw.BoxDecoration(
                 color: PdfColors.grey100,
-                borderRadius: pw.BorderRadius.circular(5),
+                borderRadius:
+                    pw.BorderRadius.circular(5),
               ),
               child: pw.Column(
                 children: [
-                  if (configuracao.responsavelTecnico.isNotEmpty)
+                  if (configuracao
+                      .responsavelTecnico
+                      .isNotEmpty)
                     _linha(
                       'Responsável',
-                      configuracao.responsavelTecnico,
+                      configuracao
+                          .responsavelTecnico,
                     ),
                   if (configuracao.crea.isNotEmpty)
                     _linha(
                       'CREA / Registro',
                       configuracao.crea,
                     ),
-                  if (configuracao.artPadrao.isNotEmpty)
+                  if (configuracao
+                      .artPadrao
+                      .isNotEmpty)
                     _linha(
                       'ART',
                       configuracao.artPadrao,
@@ -283,16 +344,22 @@ class PdfService {
           pw.SizedBox(height: 55),
 
           pw.Row(
-            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: pw.CrossAxisAlignment.end,
+            mainAxisAlignment:
+                pw.MainAxisAlignment.spaceBetween,
+            crossAxisAlignment:
+                pw.CrossAxisAlignment.end,
             children: [
               _assinatura(
-                titulo: 'Cliente / Responsável',
+                titulo:
+                    'Cliente / Responsável',
               ),
               _assinatura(
-                titulo: configuracao.responsavelTecnico.isEmpty
+                titulo: configuracao
+                        .responsavelTecnico
+                        .isEmpty
                     ? 'Responsável Técnico'
-                    : configuracao.responsavelTecnico,
+                    : configuracao
+                        .responsavelTecnico,
               ),
             ],
           ),
@@ -303,65 +370,21 @@ class PdfService {
     return pdf.save();
   }
 
-  static List<pw.Widget> _secaoFotos({
-    required String titulo,
-    required List<Uint8List> fotos,
-  }) {
-    if (fotos.isEmpty) {
-      return [];
-    }
-
-    return [
-      pw.SizedBox(height: 28),
-      _titulo(titulo),
-      pw.SizedBox(height: 6),
-      pw.Wrap(
-        spacing: 12,
-        runSpacing: 12,
-        children: List.generate(
-          fotos.length,
-          (index) {
-            final imagem = pw.MemoryImage(fotos[index]);
-
-            return pw.Container(
-              width: 245,
-              padding: const pw.EdgeInsets.all(6),
-              decoration: pw.BoxDecoration(
-                border: pw.Border.all(
-                  color: PdfColors.grey400,
-                ),
-                borderRadius: pw.BorderRadius.circular(5),
-              ),
-              child: pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  pw.Container(
-                    width: 233,
-                    height: 155,
-                    color: PdfColors.grey200,
-                    child: pw.Image(
-                      imagem,
-                      fit: pw.BoxFit.cover,
-                    ),
-                  ),
-                  pw.SizedBox(height: 5),
-                  pw.Text(
-                    'Foto ${index + 1}',
-                    style: const pw.TextStyle(
-                      fontSize: 9,
-                      color: PdfColors.grey700,
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        ),
+  static pw.Widget _textoCabecalho(
+    String texto,
+  ) {
+    return pw.Text(
+      texto,
+      style: const pw.TextStyle(
+        fontSize: 9,
+        color: PdfColors.grey700,
       ),
-    ];
+    );
   }
 
-  static pw.Widget _titulo(String texto) {
+  static pw.Widget _titulo(
+    String texto,
+  ) {
     return pw.Container(
       width: double.infinity,
       padding: const pw.EdgeInsets.only(
@@ -394,14 +417,16 @@ class PdfService {
         bottom: 8,
       ),
       child: pw.Row(
-        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        crossAxisAlignment:
+            pw.CrossAxisAlignment.start,
         children: [
           pw.SizedBox(
-            width: 95,
+            width: 110,
             child: pw.Text(
               '$titulo:',
               style: pw.TextStyle(
-                fontWeight: pw.FontWeight.bold,
+                fontWeight:
+                    pw.FontWeight.bold,
               ),
             ),
           ),
@@ -437,10 +462,21 @@ class PdfService {
     );
   }
 
-  static String _data(DateTime data) {
-    final dia = data.day.toString().padLeft(2, '0');
-    final mes = data.month.toString().padLeft(2, '0');
+  static String _data(
+    DateTime data,
+  ) {
+    final dia =
+        data.day.toString().padLeft(2, '0');
+
+    final mes =
+        data.month.toString().padLeft(2, '0');
 
     return '$dia/$mes/${data.year}';
+  }
+
+  static String _valor(
+    double valor,
+  ) {
+    return 'R\$ ${valor.toStringAsFixed(2).replaceAll('.', ',')}';
   }
 }

@@ -1,15 +1,19 @@
 class Laudo {
   final String id;
   final String numero;
+
   final String clienteId;
   final String clienteNome;
+
   final String titulo;
   final String descricao;
   final String parecerTecnico;
   final String observacoes;
+
   final String responsavelTecnico;
   final String registroProfissional;
   final String art;
+
   final String status;
   final DateTime data;
 
@@ -51,8 +55,10 @@ class Laudo {
       clienteNome: clienteNome ?? this.clienteNome,
       titulo: titulo ?? this.titulo,
       descricao: descricao ?? this.descricao,
-      parecerTecnico: parecerTecnico ?? this.parecerTecnico,
-      observacoes: observacoes ?? this.observacoes,
+      parecerTecnico:
+          parecerTecnico ?? this.parecerTecnico,
+      observacoes:
+          observacoes ?? this.observacoes,
       responsavelTecnico:
           responsavelTecnico ?? this.responsavelTecnico,
       registroProfissional:

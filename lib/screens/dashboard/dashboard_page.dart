@@ -1,12 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../clientes/clientes_page.dart';
 import '../ordens_servico/ordens_servico_page.dart';
 import '../orcamentos/orcamentos_page.dart';
+import '../laudos/laudos_page.dart';
+import '../financeiro/financeiro_page.dart';
+import '../agenda/agenda_page.dart';
+import '../configuracoes/configuracoes_page.dart';
+import '../login/login_page.dart';
 import '../../models/cliente.dart';
+import '../../models/ordem_servico.dart';
+import '../../models/orcamento.dart';
+import '../../models/laudo.dart';
 import '../../services/cliente_service.dart';
 import '../../services/ordem_servico_service.dart';
 import '../../services/orcamento_service.dart';
+import '../../services/laudo_service.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -29,12 +39,6 @@ class _DashboardPageState extends State<DashboardPage> {
     'Configurações',
   ];
   
-   int get _totalOrdens => OrdemServicoService.ordens.length;
-
-   int get _totalOrcamentos => OrcamentoService.orcamentos.length;
-
-   int get _totalLaudos => 0;
-
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
@@ -85,6 +89,50 @@ class _DashboardPageState extends State<DashboardPage> {
         ),
       ),
       body: _conteudoSelecionado(),
+    );
+  }
+
+  Future<void> _sair() async {
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Sair do sistema'),
+          content: const Text(
+            'Deseja realmente sair da sua conta?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dialogContext, false);
+              },
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFFE30613),
+              ),
+              onPressed: () {
+                Navigator.pop(dialogContext, true);
+              },
+              child: const Text('Sair'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmar != true) return;
+
+    await FirebaseAuth.instance.signOut();
+
+    if (!mounted) return;
+
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(
+        builder: (_) => const LoginPage(),
+      ),
+      (route) => false,
     );
   }
 
@@ -170,31 +218,34 @@ class _DashboardPageState extends State<DashboardPage> {
             ),
           ),
           const Divider(color: Colors.white24),
-          const Padding(
-            padding: EdgeInsets.all(18),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 10, 18, 8),
             child: Row(
               children: [
-                CircleAvatar(
+                const CircleAvatar(
                   backgroundColor: Color(0xFFE30613),
                   foregroundColor: Colors.white,
                   child: Icon(Icons.person),
                 ),
-                SizedBox(width: 12),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+                      const Text(
                         'Douglas',
-                        style: const TextStyle(
-                       color: Color(0xFF222222),
-                       fontWeight: FontWeight.bold,
-                    ),
+                        style: TextStyle(
+                          color: Color(0xFF222222),
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       Text(
-                        'Administrador',
-                        style: TextStyle(
-                          color:Color(0xFF666666),
+                        FirebaseAuth.instance.currentUser?.email ??
+                            'Administrador',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Color(0xFF666666),
                           fontSize: 12,
                         ),
                       ),
@@ -202,6 +253,23 @@ class _DashboardPageState extends State<DashboardPage> {
                   ),
                 ),
               ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+            child: SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _sair,
+                icon: const Icon(Icons.logout),
+                label: const Text('Sair'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFFE30613),
+                  side: const BorderSide(
+                    color: Color(0xFFE30613),
+                  ),
+                ),
+              ),
             ),
           ),
         ],
@@ -313,28 +381,16 @@ title: Text(
         return OrcamentosPage();
 
       case 4:
-        return _paginaEmBreve(
-          titulo: 'Laudos',
-          icon: Icons.description_outlined,
-        );
+        return const LaudosPage();
 
       case 5:
-        return _paginaEmBreve(
-          titulo: 'Financeiro',
-          icon: Icons.account_balance_wallet_outlined,
-        );
+        return const FinanceiroPage();
 
       case 6:
-        return _paginaEmBreve(
-          titulo: 'Agenda',
-          icon: Icons.calendar_month_outlined,
-        );
+        return const AgendaPage();
 
       case 7:
-        return _paginaEmBreve(
-          titulo: 'Configurações',
-          icon: Icons.settings_outlined,
-        );
+        return const ConfiguracoesPage();
 
       default:
         return _dashboard();
@@ -379,15 +435,28 @@ title: Text(
                 mainAxisSpacing: 16,
                 childAspectRatio: 2.3,
                 children: [
-                  _cardIndicador(
-                    titulo: 'OS em aberto',
-                    valor: _totalOrdens.toString(),
-                    icon: Icons.assignment_outlined,
-                    cor: Colors.blue,
-                    onTap: () {
-                      setState(() {
-                        _paginaSelecionada = 2;
-                      });
+                  StreamBuilder<List<OrdemServico>>(
+                    stream: OrdemServicoService.observarOrdens(),
+                    builder: (context, snapshot) {
+                      final ordens = snapshot.data ?? OrdemServicoService.ordens;
+                      final totalOrdensAbertas = ordens.where((ordem) {
+                        final status = ordem.status.toLowerCase();
+                        return status != 'concluída' &&
+                            status != 'concluida' &&
+                            status != 'cancelada';
+                      }).length;
+
+                      return _cardIndicador(
+                        titulo: 'OS em aberto',
+                        valor: totalOrdensAbertas.toString(),
+                        icon: Icons.assignment_outlined,
+                        cor: Colors.blue,
+                        onTap: () {
+                          setState(() {
+                            _paginaSelecionada = 2;
+                          });
+                        },
+                      );
                     },
                   ),
                   StreamBuilder<List<Cliente>>(
@@ -410,26 +479,40 @@ title: Text(
                  },
                ),
                
-                  _cardIndicador(
-                    titulo: 'Orçamentos',
-                    valor: _totalOrcamentos.toString(),
-                    icon: Icons.request_quote_outlined,
-                    cor: Colors.orange,
-                    onTap: () {
-                      setState(() {
-                        _paginaSelecionada = 3;
-                      });
+                  StreamBuilder<List<Orcamento>>(
+                    stream: OrcamentoService.observarOrcamentos(),
+                    builder: (context, snapshot) {
+                      final totalOrcamentos = snapshot.data?.length ?? OrcamentoService.orcamentos.length;
+
+                      return _cardIndicador(
+                        titulo: 'Orçamentos',
+                        valor: totalOrcamentos.toString(),
+                        icon: Icons.request_quote_outlined,
+                        cor: Colors.orange,
+                        onTap: () {
+                          setState(() {
+                            _paginaSelecionada = 3;
+                          });
+                        },
+                      );
                     },
                   ),
-                  _cardIndicador(
-                    titulo: 'Laudos',
-                    valor: _totalLaudos.toString(),
-                    icon: Icons.description_outlined,
-                    cor: Colors.purple,
-                    onTap: () {
-                      setState(() {
-                        _paginaSelecionada = 4;
-                      });
+                  StreamBuilder<List<Laudo>>(
+                    stream: LaudoService.observarLaudos(),
+                    builder: (context, snapshot) {
+                      final totalLaudos = snapshot.data?.length ?? LaudoService.laudos.length;
+
+                      return _cardIndicador(
+                        titulo: 'Laudos',
+                        valor: totalLaudos.toString(),
+                        icon: Icons.description_outlined,
+                        cor: Colors.purple,
+                        onTap: () {
+                          setState(() {
+                            _paginaSelecionada = 4;
+                          });
+                        },
+                      );
                     },
                   ),
                 ],

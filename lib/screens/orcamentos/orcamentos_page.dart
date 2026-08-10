@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:printing/printing.dart';
 
 import '../../models/orcamento.dart';
 import '../../models/ordem_servico.dart';
 import '../../services/cliente_service.dart';
 import '../../services/orcamento_service.dart';
+import '../../services/orcamento_pdf_service.dart';
 import '../../services/ordem_servico_service.dart';
 import 'orcamento_form.dart';
 
@@ -18,51 +20,52 @@ class _OrcamentosPageState extends State<OrcamentosPage> {
   bool _gerandoOs = false;
 
   Future<void> _abrirFormulario() async {
-    final salvou = await Navigator.push<bool>(
+    await Navigator.push<bool>(
       context,
       MaterialPageRoute(
         builder: (_) => const OrcamentoForm(),
       ),
     );
-
-    if (salvou == true && mounted) {
-      setState(() {});
-    }
   }
 
-  void _alterarStatus(
+  Future<void> _alterarStatus(
     Orcamento orcamento,
     String novoStatus,
-  ) {
-    final indice =
-        OrcamentoService.orcamentos.indexOf(orcamento);
-
-    if (indice < 0) {
-      return;
-    }
-
-    setState(() {
-      OrcamentoService.orcamentos[indice] =
-          orcamento.copyWith(
+  ) async {
+    try {
+      final atualizado = orcamento.copyWith(
         status: novoStatus,
       );
-    });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Orçamento marcado como $novoStatus.',
+      await OrcamentoService.atualizar(atualizado);
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Orçamento marcado como $novoStatus.',
+          ),
         ),
-      ),
-    );
+      );
+    } catch (erro) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: Colors.red,
+          content: Text(
+            'Erro ao alterar orçamento: $erro',
+          ),
+        ),
+      );
+    }
   }
 
   Future<void> _gerarOrdemServico(
     Orcamento orcamento,
   ) async {
-    if (_gerandoOs) {
-      return;
-    }
+    if (_gerandoOs) return;
 
     if (orcamento.status.toLowerCase() != 'aprovado') {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -75,10 +78,7 @@ class _OrcamentosPageState extends State<OrcamentosPage> {
       return;
     }
 
-    if (orcamento.convertidoEmOs ||
-        OrdemServicoService.existeOrdemDoOrcamento(
-          orcamento.id,
-        )) {
+    if (orcamento.convertidoEmOs) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
@@ -89,37 +89,43 @@ class _OrcamentosPageState extends State<OrcamentosPage> {
       return;
     }
 
-    final clientesEncontrados =
-        ClienteService.clientes.where(
-      (cliente) => cliente.nome == orcamento.cliente,
-    );
-
-    if (clientesEncontrados.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'O cliente deste orçamento não foi encontrado.',
-          ),
-        ),
-      );
-      return;
-    }
-
-    final cliente = clientesEncontrados.first;
-
     setState(() {
       _gerandoOs = true;
     });
 
     try {
+      final clientes =
+          await ClienteService.carregarClientes();
+
+      final encontrados = clientes.where(
+        (cliente) => cliente.nome == orcamento.cliente,
+      );
+
+      if (encontrados.isEmpty) {
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'O cliente deste orçamento não foi encontrado.',
+            ),
+          ),
+        );
+
+        return;
+      }
+
+      final cliente = encontrados.first;
+
       final numeroOs =
           await OrdemServicoService.gerarNumero();
 
       final novaOrdem = OrdemServico(
-        id: OrdemServicoService.gerarId(),
+        id: '',
         numero: numeroOs,
         clienteId: cliente.id,
         clienteNome: cliente.nome,
+        tecnico: '',
         descricao: orcamento.descricao.isEmpty
             ? 'Serviço referente ao ${orcamento.numero}.'
             : orcamento.descricao,
@@ -131,30 +137,20 @@ class _OrcamentosPageState extends State<OrcamentosPage> {
         orcamentoId: orcamento.id,
       );
 
-      await OrdemServicoService.adicionar(
-        novaOrdem,
+      await OrdemServicoService.adicionar(novaOrdem);
+
+      final atualizado = orcamento.copyWith(
+        convertidoEmOs: true,
       );
 
-      final indice =
-          OrcamentoService.orcamentos.indexOf(
-        orcamento,
-      );
-
-      if (indice >= 0) {
-        OrcamentoService.orcamentos[indice] =
-            orcamento.copyWith(
-          convertidoEmOs: true,
-        );
-      }
+      await OrcamentoService.atualizar(atualizado);
 
       if (!mounted) return;
-
-      setState(() {});
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            '${novaOrdem.numero} criada com sucesso.',
+            '$numeroOs criada com sucesso.',
           ),
         ),
       );
@@ -178,6 +174,33 @@ class _OrcamentosPageState extends State<OrcamentosPage> {
     }
   }
 
+  Future<void> _gerarPdf(
+    Orcamento orcamento,
+  ) async {
+    try {
+      final bytes =
+          await OrcamentoPdfService.gerarOrcamento(
+        orcamento,
+      );
+
+      await Printing.layoutPdf(
+        name: '${orcamento.numero}.pdf',
+        onLayout: (_) async => bytes,
+      );
+    } catch (erro) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: Colors.red,
+          content: Text(
+            'Erro ao gerar PDF do orçamento: $erro',
+          ),
+        ),
+      );
+    }
+  }
+
   Future<void> _excluirOrcamento(
     Orcamento orcamento,
   ) async {
@@ -185,9 +208,7 @@ class _OrcamentosPageState extends State<OrcamentosPage> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: const Text(
-            'Excluir orçamento',
-          ),
+          title: const Text('Excluir orçamento'),
           content: Text(
             'Deseja realmente excluir o orçamento ${orcamento.numero}?',
           ),
@@ -196,9 +217,7 @@ class _OrcamentosPageState extends State<OrcamentosPage> {
               onPressed: () {
                 Navigator.of(dialogContext).pop(false);
               },
-              child: const Text(
-                'Cancelar',
-              ),
+              child: const Text('Cancelar'),
             ),
             FilledButton(
               style: FilledButton.styleFrom(
@@ -207,9 +226,7 @@ class _OrcamentosPageState extends State<OrcamentosPage> {
               onPressed: () {
                 Navigator.of(dialogContext).pop(true);
               },
-              child: const Text(
-                'Excluir',
-              ),
+              child: const Text('Excluir'),
             ),
           ],
         );
@@ -220,17 +237,30 @@ class _OrcamentosPageState extends State<OrcamentosPage> {
       return;
     }
 
-    setState(() {
-      OrcamentoService.remover(orcamento);
-    });
+    try {
+      await OrcamentoService.remover(orcamento);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Orçamento excluído com sucesso.',
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Orçamento excluído com sucesso.',
+          ),
         ),
-      ),
-    );
+      );
+    } catch (erro) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: Colors.red,
+          content: Text(
+            'Erro ao excluir orçamento: $erro',
+          ),
+        ),
+      );
+    }
   }
 
   String _formatarValor(double valor) {
@@ -262,104 +292,134 @@ class _OrcamentosPageState extends State<OrcamentosPage> {
 
   @override
   Widget build(BuildContext context) {
-    final orcamentos =
-        OrcamentoService.orcamentos;
-
     return Scaffold(
-      backgroundColor:
-          const Color(0xFFF5F5F5),
+      backgroundColor: const Color(0xFFF5F5F5),
 
       appBar: AppBar(
-        title: const Text(
-          'Orçamentos',
-        ),
-        backgroundColor:
-            const Color(0xFFE30613),
-        foregroundColor:
-            Colors.white,
+        title: const Text('Orçamentos'),
+        backgroundColor: const Color(0xFFE30613),
+        foregroundColor: Colors.white,
       ),
 
       floatingActionButton:
           FloatingActionButton.extended(
         backgroundColor:
             const Color(0xFFE30613),
-        foregroundColor:
-            Colors.white,
+        foregroundColor: Colors.white,
         onPressed: _abrirFormulario,
-        icon: const Icon(
-          Icons.add,
-        ),
+        icon: const Icon(Icons.add),
         label: const Text(
           'Novo Orçamento',
         ),
       ),
 
-      body: orcamentos.isEmpty
-          ? _estadoVazio()
-          : ListView.builder(
-              padding:
-                  const EdgeInsets.all(20),
-              itemCount:
-                  orcamentos.length,
-              itemBuilder:
-                  (context, index) {
-                final orcamento =
-                    orcamentos[index];
+      body: StreamBuilder<List<Orcamento>>(
+        stream:
+            OrcamentoService.observarOrcamentos(),
 
-                return _OrcamentoCard(
-                  orcamento:
-                      orcamento,
-                  valorFormatado:
-                      _formatarValor(
-                    orcamento.valor,
-                  ),
-                  dataFormatada:
-                      _formatarData(
-                    orcamento.data,
-                  ),
-                  corStatus:
-                      _corStatus(
-                    orcamento.status,
-                  ),
-                  gerandoOs:
-                      _gerandoOs,
+        builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return Center(
+              child: Text(
+                'Erro ao carregar orçamentos:\n${snapshot.error}',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.red,
+                ),
+              ),
+            );
+          }
 
-                  onAprovar: () {
-                    _alterarStatus(
-                      orcamento,
-                      'Aprovado',
-                    );
-                  },
+          if (!snapshot.hasData) {
+            return const Center(
+              child: CircularProgressIndicator(
+                color: Color(0xFFE30613),
+              ),
+            );
+          }
 
-                  onReprovar: () {
-                    _alterarStatus(
-                      orcamento,
-                      'Reprovado',
-                    );
-                  },
+          final orcamentos =
+              snapshot.data ?? [];
 
-                  onGerarOs: () {
-                    _gerarOrdemServico(
-                      orcamento,
-                    );
-                  },
+          if (orcamentos.isEmpty) {
+            return _estadoVazio();
+          }
 
-                  onExcluir: () {
-                    _excluirOrcamento(
-                      orcamento,
-                    );
-                  },
-                );
-              },
-            ),
+          return ListView.builder(
+            padding:
+                const EdgeInsets.all(20),
+            itemCount:
+                orcamentos.length,
+
+            itemBuilder:
+                (context, index) {
+              final orcamento =
+                  orcamentos[index];
+
+              return _OrcamentoCard(
+                orcamento: orcamento,
+
+                valorFormatado:
+                    _formatarValor(
+                  orcamento.valor,
+                ),
+
+                dataFormatada:
+                    _formatarData(
+                  orcamento.data,
+                ),
+
+                corStatus:
+                    _corStatus(
+                  orcamento.status,
+                ),
+
+                gerandoOs:
+                    _gerandoOs,
+
+                onAprovar: () {
+                  _alterarStatus(
+                    orcamento,
+                    'Aprovado',
+                  );
+                },
+
+                onReprovar: () {
+                  _alterarStatus(
+                    orcamento,
+                    'Reprovado',
+                  );
+                },
+
+                onGerarOs: () {
+                  _gerarOrdemServico(
+                    orcamento,
+                  );
+                },
+
+                onPdf: () {
+                  _gerarPdf(
+                    orcamento,
+                  );
+                },
+
+                onExcluir: () {
+                  _excluirOrcamento(
+                    orcamento,
+                  );
+                },
+              );
+            },
+          );
+        },
+      ),
     );
   }
 
   Widget _estadoVazio() {
     return Center(
       child: Padding(
-        padding:
-            const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(24),
 
         child: Column(
           mainAxisAlignment:
@@ -367,21 +427,16 @@ class _OrcamentosPageState extends State<OrcamentosPage> {
 
           children: [
             const Icon(
-              Icons
-                  .request_quote_outlined,
+              Icons.request_quote_outlined,
               size: 80,
-              color:
-                  Color(0xFFE30613),
+              color: Color(0xFFE30613),
             ),
 
-            const SizedBox(
-              height: 18,
-            ),
+            const SizedBox(height: 18),
 
             const Text(
               'Nenhum orçamento cadastrado.',
-              textAlign:
-                  TextAlign.center,
+              textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 21,
                 fontWeight:
@@ -389,30 +444,21 @@ class _OrcamentosPageState extends State<OrcamentosPage> {
               ),
             ),
 
-            const SizedBox(
-              height: 8,
-            ),
+            const SizedBox(height: 8),
 
             const Text(
               'Clique em “Novo Orçamento” para criar o primeiro.',
-              textAlign:
-                  TextAlign.center,
+              textAlign: TextAlign.center,
               style: TextStyle(
-                color:
-                    Colors.black54,
+                color: Colors.black54,
               ),
             ),
 
-            const SizedBox(
-              height: 22,
-            ),
+            const SizedBox(height: 22),
 
             FilledButton.icon(
-              onPressed:
-                  _abrirFormulario,
-              icon: const Icon(
-                Icons.add,
-              ),
+              onPressed: _abrirFormulario,
+              icon: const Icon(Icons.add),
               label: const Text(
                 'Criar orçamento',
               ),
@@ -427,6 +473,7 @@ class _OrcamentosPageState extends State<OrcamentosPage> {
 class _OrcamentoCard
     extends StatelessWidget {
   final Orcamento orcamento;
+
   final String valorFormatado;
   final String dataFormatada;
   final Color corStatus;
@@ -436,6 +483,7 @@ class _OrcamentoCard
   final VoidCallback onAprovar;
   final VoidCallback onReprovar;
   final VoidCallback onGerarOs;
+  final VoidCallback onPdf;
   final VoidCallback onExcluir;
 
   const _OrcamentoCard({
@@ -447,13 +495,15 @@ class _OrcamentoCard
     required this.onAprovar,
     required this.onReprovar,
     required this.onGerarOs,
+    required this.onPdf,
     required this.onExcluir,
   });
 
   @override
   Widget build(BuildContext context) {
     final aprovado =
-        orcamento.status.toLowerCase() ==
+        orcamento.status
+                .toLowerCase() ==
             'aprovado';
 
     return Card(
@@ -487,9 +537,7 @@ class _OrcamentoCard
               ),
             ),
 
-            const SizedBox(
-              width: 14,
-            ),
+            const SizedBox(width: 14),
 
             Expanded(
               child: Column(
@@ -527,8 +575,7 @@ class _OrcamentoCard
                     ),
 
                     Text(
-                      orcamento
-                          .descricao,
+                      orcamento.descricao,
                       maxLines: 3,
                       overflow:
                           TextOverflow
@@ -548,8 +595,7 @@ class _OrcamentoCard
                       Chip(
                         avatar:
                             const Icon(
-                          Icons
-                              .attach_money,
+                          Icons.attach_money,
                           size: 18,
                         ),
                         label: Text(
@@ -576,8 +622,7 @@ class _OrcamentoCard
                           alpha: 0.12,
                         ),
                         label: Text(
-                          orcamento
-                              .status,
+                          orcamento.status,
                           style:
                               TextStyle(
                             color:
@@ -593,8 +638,7 @@ class _OrcamentoCard
                           .convertidoEmOs)
                         const Chip(
                           avatar: Icon(
-                            Icons
-                                .check_circle,
+                            Icons.check_circle,
                             size: 18,
                             color:
                                 Colors.green,
@@ -664,6 +708,10 @@ class _OrcamentoCard
                     }
                     break;
 
+                  case 'pdf':
+                    onPdf();
+                    break;
+
                   case 'excluir':
                     onExcluir();
                     break;
@@ -685,9 +733,7 @@ class _OrcamentoCard
                         SizedBox(
                           width: 10,
                         ),
-                        Text(
-                          'Aprovar',
-                        ),
+                        Text('Aprovar'),
                       ],
                     ),
                   ),
@@ -705,9 +751,7 @@ class _OrcamentoCard
                         SizedBox(
                           width: 10,
                         ),
-                        Text(
-                          'Reprovar',
-                        ),
+                        Text('Reprovar'),
                       ],
                     ),
                   ),
@@ -726,12 +770,26 @@ class _OrcamentoCard
                           SizedBox(
                             width: 10,
                           ),
-                          Text(
-                            'Gerar OS',
-                          ),
+                          Text('Gerar OS'),
                         ],
                       ),
                     ),
+
+                  const PopupMenuItem(
+                    value: 'pdf',
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.picture_as_pdf_outlined,
+                          color: Color(0xFFE30613),
+                        ),
+                        SizedBox(
+                          width: 10,
+                        ),
+                        Text('Gerar PDF'),
+                      ],
+                    ),
+                  ),
 
                   const PopupMenuDivider(),
 
@@ -748,9 +806,7 @@ class _OrcamentoCard
                         SizedBox(
                           width: 10,
                         ),
-                        Text(
-                          'Excluir',
-                        ),
+                        Text('Excluir'),
                       ],
                     ),
                   ),
