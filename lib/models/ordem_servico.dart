@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'orcamento.dart';
+
 class OrdemServico {
   final String id;
   final String numero;
@@ -13,6 +15,7 @@ class OrdemServico {
   final DateTime data;
   final String observacoes;
   final String? orcamentoId;
+  final List<ItemMaterialOrcamento> materiais;
 
   final List<Uint8List> fotosAntes;
   final List<Uint8List> fotosDepois;
@@ -35,6 +38,7 @@ class OrdemServico {
     required this.data,
     this.observacoes = '',
     this.orcamentoId,
+    this.materiais = const [],
     this.fotosAntes = const [],
     this.fotosDepois = const [],
     this.nomeAssinanteTecnico = '',
@@ -56,6 +60,7 @@ class OrdemServico {
     DateTime? data,
     String? observacoes,
     String? orcamentoId,
+    List<ItemMaterialOrcamento>? materiais,
     List<Uint8List>? fotosAntes,
     List<Uint8List>? fotosDepois,
     String? nomeAssinanteTecnico,
@@ -76,20 +81,17 @@ class OrdemServico {
       data: data ?? this.data,
       observacoes: observacoes ?? this.observacoes,
       orcamentoId: orcamentoId ?? this.orcamentoId,
-      fotosAntes:
-          fotosAntes ?? List<Uint8List>.from(this.fotosAntes),
-      fotosDepois:
-          fotosDepois ?? List<Uint8List>.from(this.fotosDepois),
+      materiais:
+          materiais ?? List<ItemMaterialOrcamento>.from(this.materiais),
+      fotosAntes: fotosAntes ?? List<Uint8List>.from(this.fotosAntes),
+      fotosDepois: fotosDepois ?? List<Uint8List>.from(this.fotosDepois),
       nomeAssinanteTecnico:
           nomeAssinanteTecnico ?? this.nomeAssinanteTecnico,
       nomeAssinanteCliente:
           nomeAssinanteCliente ?? this.nomeAssinanteCliente,
-      assinaturaTecnico:
-          assinaturaTecnico ?? this.assinaturaTecnico,
-      assinaturaCliente:
-          assinaturaCliente ?? this.assinaturaCliente,
-      dataConclusao:
-          dataConclusao ?? this.dataConclusao,
+      assinaturaTecnico: assinaturaTecnico ?? this.assinaturaTecnico,
+      assinaturaCliente: assinaturaCliente ?? this.assinaturaCliente,
+      dataConclusao: dataConclusao ?? this.dataConclusao,
     );
   }
 
@@ -105,22 +107,30 @@ class OrdemServico {
       'data': data.millisecondsSinceEpoch,
       'observacoes': observacoes,
       'orcamentoId': orcamentoId,
+      'materiais': materiais.map((item) => item.toMap()).toList(),
       'nomeAssinanteTecnico': nomeAssinanteTecnico,
       'nomeAssinanteCliente': nomeAssinanteCliente,
-      'assinaturaTecnico': assinaturaTecnico == null
-          ? null
-          : base64Encode(assinaturaTecnico!),
-      'assinaturaCliente': assinaturaCliente == null
-          ? null
-          : base64Encode(assinaturaCliente!),
+      'assinaturaTecnico':
+          assinaturaTecnico == null ? null : base64Encode(assinaturaTecnico!),
+      'assinaturaCliente':
+          assinaturaCliente == null ? null : base64Encode(assinaturaCliente!),
       'dataConclusao': dataConclusao?.millisecondsSinceEpoch,
     };
   }
 
-  factory OrdemServico.fromMap(
-    String id,
-    Map<String, dynamic> map,
-  ) {
+  factory OrdemServico.fromMap(String id, Map<String, dynamic> map) {
+    final materiaisMap = map['materiais'];
+    final materiais = materiaisMap is List
+        ? materiaisMap
+            .whereType<Map>()
+            .map(
+              (item) => ItemMaterialOrcamento.fromMap(
+                Map<String, dynamic>.from(item),
+              ),
+            )
+            .toList()
+        : <ItemMaterialOrcamento>[];
+
     return OrdemServico(
       id: id,
       numero: map['numero']?.toString() ?? '',
@@ -138,26 +148,21 @@ class OrdemServico {
       ),
       observacoes: map['observacoes']?.toString() ?? '',
       orcamentoId: map['orcamentoId']?.toString(),
+      materiais: materiais,
       fotosAntes: const [],
       fotosDepois: const [],
       nomeAssinanteTecnico:
           map['nomeAssinanteTecnico']?.toString() ?? '',
       nomeAssinanteCliente:
           map['nomeAssinanteCliente']?.toString() ?? '',
-      assinaturaTecnico:
-          _decodificarAssinatura(map['assinaturaTecnico']),
-      assinaturaCliente:
-          _decodificarAssinatura(map['assinaturaCliente']),
-      dataConclusao:
-          _converterData(map['dataConclusao']),
+      assinaturaTecnico: _decodificarAssinatura(map['assinaturaTecnico']),
+      assinaturaCliente: _decodificarAssinatura(map['assinaturaCliente']),
+      dataConclusao: _converterData(map['dataConclusao']),
     );
   }
 
   static Uint8List? _decodificarAssinatura(dynamic valor) {
-    if (valor == null || valor.toString().isEmpty) {
-      return null;
-    }
-
+    if (valor == null || valor.toString().isEmpty) return null;
     try {
       return base64Decode(valor.toString());
     } catch (_) {
@@ -166,18 +171,10 @@ class OrdemServico {
   }
 
   static DateTime? _converterData(dynamic valor) {
-    if (valor == null) {
-      return null;
-    }
-
-    final milissegundos = valor is int
-        ? valor
-        : int.tryParse(valor.toString());
-
-    if (milissegundos == null) {
-      return null;
-    }
-
+    if (valor == null) return null;
+    final milissegundos =
+        valor is int ? valor : int.tryParse(valor.toString());
+    if (milissegundos == null) return null;
     return DateTime.fromMillisecondsSinceEpoch(milissegundos);
   }
 }

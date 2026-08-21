@@ -134,6 +134,7 @@ class _OrcamentosPageState extends State<OrcamentosPage> {
         observacoes:
             'Ordem de Serviço gerada a partir do ${orcamento.numero}.',
         orcamentoId: orcamento.id,
+        materiais: orcamento.materiais,
       );
 
       await OrdemServicoService.adicionar(novaOrdem);

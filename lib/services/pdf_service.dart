@@ -213,6 +213,13 @@ class PdfService {
 
           pw.SizedBox(height: 22),
 
+          if (ordem.materiais.isNotEmpty) ...[
+            _titulo('Materiais do serviço'),
+            pw.SizedBox(height: 8),
+            _tabelaMateriais(ordem),
+            pw.SizedBox(height: 22),
+          ],
+
           _titulo('Observações'),
 
           pw.Container(
@@ -294,7 +301,7 @@ class PdfService {
             ),
           ],
 
-          pw.SizedBox(height: 35),
+          pw.SizedBox(height: 12),
 
           pw.Row(
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
@@ -319,6 +326,66 @@ class PdfService {
     );
 
     return pdf.save();
+  }
+
+  static pw.Widget _tabelaMateriais(OrdemServico ordem) {
+    return pw.Table(
+      border: pw.TableBorder.all(color: PdfColors.grey400),
+      columnWidths: const {
+        0: pw.FlexColumnWidth(3.5),
+        1: pw.FlexColumnWidth(1),
+        2: pw.FlexColumnWidth(1.5),
+        3: pw.FlexColumnWidth(1.5),
+      },
+      children: [
+        pw.TableRow(
+          decoration: const pw.BoxDecoration(color: PdfColors.grey300),
+          children: [
+            _celulaMaterial('Material', cabecalho: true),
+            _celulaMaterial('Qtd.', cabecalho: true),
+            _celulaMaterial('Unitário', cabecalho: true),
+            _celulaMaterial('Total', cabecalho: true),
+          ],
+        ),
+        ...ordem.materiais.map(
+          (material) => pw.TableRow(
+            children: [
+              _celulaMaterial(material.descricao),
+              _celulaMaterial(_quantidade(material.quantidade)),
+              _celulaMaterial(_moeda(material.valorUnitario)),
+              _celulaMaterial(_moeda(material.valorTotal)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  static pw.Widget _celulaMaterial(
+    String texto, {
+    bool cabecalho = false,
+  }) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.all(7),
+      child: pw.Text(
+        texto,
+        style: pw.TextStyle(
+          fontSize: 9,
+          fontWeight: cabecalho ? pw.FontWeight.bold : pw.FontWeight.normal,
+        ),
+      ),
+    );
+  }
+
+  static String _moeda(double valor) {
+    return 'R\$ ${valor.toStringAsFixed(2).replaceAll('.', ',')}';
+  }
+
+  static String _quantidade(double valor) {
+    if (valor == valor.roundToDouble()) {
+      return valor.toInt().toString();
+    }
+    return valor.toString().replaceAll('.', ',');
   }
 
   static List<pw.Widget> _secaoFotos({
@@ -441,13 +508,13 @@ class PdfService {
       child: pw.Column(
         children: [
           pw.Container(
-            height: 75,
+            height: 55,
             alignment: pw.Alignment.center,
             child: assinatura == null
                 ? pw.SizedBox()
                 : pw.Image(
                     pw.MemoryImage(assinatura),
-                    height: 70,
+                    height: 50,
                     width: 200,
                     fit: pw.BoxFit.contain,
                   ),

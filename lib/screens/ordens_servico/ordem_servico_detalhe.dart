@@ -665,6 +665,12 @@ class _OrdemServicoDetalheState
                   height: 18,
                 ),
 
+                _cardMateriais(),
+
+                const SizedBox(
+                  height: 18,
+                ),
+
                 _cardFotos(),
 
                 if (_ordem.orcamentoId !=
@@ -765,6 +771,99 @@ class _OrdemServicoDetalheState
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  String _formatarMoeda(double valor) {
+    return 'R\$ ${valor.toStringAsFixed(2).replaceAll('.', ',')}';
+  }
+
+  Widget _cardMateriais() {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(
+                  Icons.inventory_2_outlined,
+                  color: Color(0xFFE30613),
+                ),
+                SizedBox(width: 10),
+                Text(
+                  'Materiais do serviço',
+                  style: TextStyle(
+                    fontSize: 19,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const Divider(height: 28),
+            if (_ordem.materiais.isEmpty)
+              const Text(
+                'Nenhum material informado para esta Ordem de Serviço.',
+                style: TextStyle(color: Colors.black54),
+              )
+            else
+              ...List.generate(_ordem.materiais.length, (index) {
+                final material = _ordem.materiais[index];
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 17,
+                        backgroundColor: const Color(0xFFE30613),
+                        foregroundColor: Colors.white,
+                        child: Text('${index + 1}'),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              material.descricao,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '${material.quantidade} × '
+                              '${_formatarMoeda(material.valorUnitario)}',
+                              style: const TextStyle(
+                                color: Colors.black54,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Text(
+                        _formatarMoeda(material.valorTotal),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+          ],
         ),
       ),
     );
