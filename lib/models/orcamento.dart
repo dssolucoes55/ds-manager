@@ -35,6 +35,7 @@ class ItemMaterialOrcamento {
 class Orcamento {
   final String id;
   final String numero;
+  final String clienteId;
   final String cliente;
   final DateTime data;
   final double valor;
@@ -47,6 +48,7 @@ class Orcamento {
   const Orcamento({
     required this.id,
     required this.numero,
+    this.clienteId = '',
     required this.cliente,
     required this.data,
     required this.valor,
@@ -67,6 +69,7 @@ class Orcamento {
   Orcamento copyWith({
     String? id,
     String? numero,
+    String? clienteId,
     String? cliente,
     DateTime? data,
     double? valor,
@@ -79,6 +82,7 @@ class Orcamento {
     return Orcamento(
       id: id ?? this.id,
       numero: numero ?? this.numero,
+      clienteId: clienteId ?? this.clienteId,
       cliente: cliente ?? this.cliente,
       data: data ?? this.data,
       valor: valor ?? this.valor,
@@ -93,6 +97,7 @@ class Orcamento {
   Map<String, dynamic> toMap() {
     return {
       'numero': numero,
+      'clienteId': clienteId,
       'cliente': cliente,
       'data': data.millisecondsSinceEpoch,
       'valor': valor,
@@ -109,15 +114,18 @@ class Orcamento {
     final materiais = materiaisMap is List
         ? materiaisMap
             .whereType<Map>()
-            .map((item) => ItemMaterialOrcamento.fromMap(
-                  Map<String, dynamic>.from(item),
-                ))
+            .map(
+              (item) => ItemMaterialOrcamento.fromMap(
+                Map<String, dynamic>.from(item),
+              ),
+            )
             .toList()
         : <ItemMaterialOrcamento>[];
 
     return Orcamento(
       id: id,
       numero: map['numero']?.toString() ?? '',
+      clienteId: map['clienteId']?.toString() ?? '',
       cliente: map['cliente']?.toString() ?? '',
       data: DateTime.fromMillisecondsSinceEpoch(
         map['data'] is int

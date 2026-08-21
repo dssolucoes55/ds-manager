@@ -90,9 +90,12 @@ class _OrcamentosPageState extends State<OrcamentosPage> {
 
     try {
       final clientes = await ClienteService.carregarClientes();
-      final encontrados = clientes.where(
-        (cliente) => cliente.nome == orcamento.cliente,
-      );
+      final encontrados = clientes.where((cliente) {
+        if (orcamento.clienteId.isNotEmpty) {
+          return cliente.id == orcamento.clienteId;
+        }
+        return cliente.nome == orcamento.cliente;
+      });
 
       if (encontrados.isEmpty) {
         if (!mounted) return;

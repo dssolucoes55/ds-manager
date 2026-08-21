@@ -161,6 +161,7 @@ class _OrcamentoFormState extends State<OrcamentoForm> {
     try {
       if (_editando) {
         final atualizado = widget.orcamento!.copyWith(
+          clienteId: cliente.id,
           cliente: cliente.nome,
           valor: _valorTotal,
           valorMaoDeObra: _valorMaoDeObra,
@@ -173,6 +174,7 @@ class _OrcamentoFormState extends State<OrcamentoForm> {
         final novoOrcamento = Orcamento(
           id: '',
           numero: numero,
+          clienteId: cliente.id,
           cliente: cliente.nome,
           data: DateTime.now(),
           valor: _valorTotal,
@@ -230,6 +232,15 @@ class _OrcamentoFormState extends State<OrcamentoForm> {
           }
 
           final clientes = snapshot.data ?? [];
+
+          if (_clienteSelecionadoId == null &&
+              widget.orcamento != null &&
+              widget.orcamento!.clienteId.isNotEmpty &&
+              clientes.any(
+                (cliente) => cliente.id == widget.orcamento!.clienteId,
+              )) {
+            _clienteSelecionadoId = widget.orcamento!.clienteId;
+          }
 
           if (_clienteSelecionadoId == null && widget.orcamento != null) {
             for (final cliente in clientes) {
