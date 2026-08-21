@@ -6,7 +6,12 @@ import '../../services/cliente_service.dart';
 import '../../services/ordem_servico_service.dart';
 
 class OrdemServicoForm extends StatefulWidget {
-  const OrdemServicoForm({super.key});
+  final OrdemServico? ordem;
+
+  const OrdemServicoForm({
+    super.key,
+    this.ordem,
+  });
 
   @override
   State<OrdemServicoForm> createState() => _OrdemServicoFormState();
@@ -21,6 +26,23 @@ class _OrdemServicoFormState extends State<OrdemServicoForm> {
 
   String _prioridade = 'Normal';
   bool _salvando = false;
+
+  bool get _editando => widget.ordem != null;
+
+  @override
+  void initState() {
+    super.initState();
+
+    final ordem = widget.ordem;
+
+    if (ordem != null) {
+      _clienteSelecionadoId = ordem.clienteId;
+      _tecnicoController.text = ordem.tecnico;
+      _descricaoController.text = ordem.descricao;
+      _observacaoController.text = ordem.observacoes;
+      _prioridade = ordem.prioridade;
+    }
+  }
 
   @override
   void dispose() {
@@ -50,20 +72,33 @@ class _OrdemServicoFormState extends State<OrdemServicoForm> {
     });
 
     try {
-      final ordem = OrdemServico(
-        id: '',
-        numero: await OrdemServicoService.gerarNumero(),
-        clienteId: cliente.id,
-        clienteNome: cliente.nome,
-        tecnico: _tecnicoController.text.trim(),
-        descricao: _descricaoController.text.trim(),
-        prioridade: _prioridade,
-        status: 'Aberta',
-        data: DateTime.now(),
-        observacoes: _observacaoController.text.trim(),
-      );
+      if (_editando) {
+        final ordemAtualizada = widget.ordem!.copyWith(
+          clienteId: cliente.id,
+          clienteNome: cliente.nome,
+          tecnico: _tecnicoController.text.trim(),
+          descricao: _descricaoController.text.trim(),
+          prioridade: _prioridade,
+          observacoes: _observacaoController.text.trim(),
+        );
 
-      await OrdemServicoService.adicionar(ordem);
+        await OrdemServicoService.atualizar(ordemAtualizada);
+      } else {
+        final ordem = OrdemServico(
+          id: '',
+          numero: await OrdemServicoService.gerarNumero(),
+          clienteId: cliente.id,
+          clienteNome: cliente.nome,
+          tecnico: _tecnicoController.text.trim(),
+          descricao: _descricaoController.text.trim(),
+          prioridade: _prioridade,
+          status: 'Aberta',
+          data: DateTime.now(),
+          observacoes: _observacaoController.text.trim(),
+        );
+
+        await OrdemServicoService.adicionar(ordem);
+      }
 
       if (!mounted) return;
 
@@ -75,7 +110,9 @@ class _OrdemServicoFormState extends State<OrdemServicoForm> {
         SnackBar(
           backgroundColor: Colors.red,
           content: Text(
-            'Erro ao salvar Ordem de Serviço: $erro',
+            _editando
+                ? 'Erro ao atualizar Ordem de Serviço: $erro'
+                : 'Erro ao salvar Ordem de Serviço: $erro',
           ),
         ),
       );
@@ -92,7 +129,11 @@ class _OrdemServicoFormState extends State<OrdemServicoForm> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Nova Ordem de Serviço'),
+        title: Text(
+          _editando
+              ? 'Editar Ordem de Serviço'
+              : 'Nova Ordem de Serviço',
+        ),
         backgroundColor: const Color(0xFFE30613),
         foregroundColor: Colors.white,
       ),
@@ -121,12 +162,18 @@ class _OrdemServicoFormState extends State<OrdemServicoForm> {
 
           final clientes = snapshot.data ?? [];
 
+          final clienteValido = clientes.any(
+            (cliente) => cliente.id == _clienteSelecionadoId,
+          );
+
           return Padding(
             padding: const EdgeInsets.all(20),
             child: ListView(
               children: [
                 DropdownButtonFormField<String>(
-                  initialValue: _clienteSelecionadoId,
+                  initialValue: clienteValido
+                      ? _clienteSelecionadoId
+                      : null,
                   decoration: const InputDecoration(
                     labelText: 'Cliente',
                     prefixIcon: Icon(Icons.business),
@@ -245,11 +292,15 @@ class _OrdemServicoFormState extends State<OrdemServicoForm> {
                               color: Colors.white,
                             ),
                           )
-                        : const Icon(Icons.save),
+                        : Icon(
+                            _editando ? Icons.check : Icons.save,
+                          ),
                     label: Text(
                       _salvando
                           ? 'SALVANDO...'
-                          : 'SALVAR',
+                          : _editando
+                              ? 'SALVAR ALTERAÇÕES'
+                              : 'SALVAR',
                     ),
                   ),
                 ),
