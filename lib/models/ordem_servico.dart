@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 class OrdemServico {
@@ -16,6 +17,12 @@ class OrdemServico {
   final List<Uint8List> fotosAntes;
   final List<Uint8List> fotosDepois;
 
+  final String nomeAssinanteTecnico;
+  final String nomeAssinanteCliente;
+  final Uint8List? assinaturaTecnico;
+  final Uint8List? assinaturaCliente;
+  final DateTime? dataConclusao;
+
   OrdemServico({
     required this.id,
     required this.numero,
@@ -30,6 +37,11 @@ class OrdemServico {
     this.orcamentoId,
     this.fotosAntes = const [],
     this.fotosDepois = const [],
+    this.nomeAssinanteTecnico = '',
+    this.nomeAssinanteCliente = '',
+    this.assinaturaTecnico,
+    this.assinaturaCliente,
+    this.dataConclusao,
   });
 
   OrdemServico copyWith({
@@ -46,6 +58,11 @@ class OrdemServico {
     String? orcamentoId,
     List<Uint8List>? fotosAntes,
     List<Uint8List>? fotosDepois,
+    String? nomeAssinanteTecnico,
+    String? nomeAssinanteCliente,
+    Uint8List? assinaturaTecnico,
+    Uint8List? assinaturaCliente,
+    DateTime? dataConclusao,
   }) {
     return OrdemServico(
       id: id ?? this.id,
@@ -59,8 +76,20 @@ class OrdemServico {
       data: data ?? this.data,
       observacoes: observacoes ?? this.observacoes,
       orcamentoId: orcamentoId ?? this.orcamentoId,
-      fotosAntes: fotosAntes ?? List<Uint8List>.from(this.fotosAntes),
-      fotosDepois: fotosDepois ?? List<Uint8List>.from(this.fotosDepois),
+      fotosAntes:
+          fotosAntes ?? List<Uint8List>.from(this.fotosAntes),
+      fotosDepois:
+          fotosDepois ?? List<Uint8List>.from(this.fotosDepois),
+      nomeAssinanteTecnico:
+          nomeAssinanteTecnico ?? this.nomeAssinanteTecnico,
+      nomeAssinanteCliente:
+          nomeAssinanteCliente ?? this.nomeAssinanteCliente,
+      assinaturaTecnico:
+          assinaturaTecnico ?? this.assinaturaTecnico,
+      assinaturaCliente:
+          assinaturaCliente ?? this.assinaturaCliente,
+      dataConclusao:
+          dataConclusao ?? this.dataConclusao,
     );
   }
 
@@ -76,6 +105,15 @@ class OrdemServico {
       'data': data.millisecondsSinceEpoch,
       'observacoes': observacoes,
       'orcamentoId': orcamentoId,
+      'nomeAssinanteTecnico': nomeAssinanteTecnico,
+      'nomeAssinanteCliente': nomeAssinanteCliente,
+      'assinaturaTecnico': assinaturaTecnico == null
+          ? null
+          : base64Encode(assinaturaTecnico!),
+      'assinaturaCliente': assinaturaCliente == null
+          ? null
+          : base64Encode(assinaturaCliente!),
+      'dataConclusao': dataConclusao?.millisecondsSinceEpoch,
     };
   }
 
@@ -102,6 +140,44 @@ class OrdemServico {
       orcamentoId: map['orcamentoId']?.toString(),
       fotosAntes: const [],
       fotosDepois: const [],
+      nomeAssinanteTecnico:
+          map['nomeAssinanteTecnico']?.toString() ?? '',
+      nomeAssinanteCliente:
+          map['nomeAssinanteCliente']?.toString() ?? '',
+      assinaturaTecnico:
+          _decodificarAssinatura(map['assinaturaTecnico']),
+      assinaturaCliente:
+          _decodificarAssinatura(map['assinaturaCliente']),
+      dataConclusao:
+          _converterData(map['dataConclusao']),
     );
+  }
+
+  static Uint8List? _decodificarAssinatura(dynamic valor) {
+    if (valor == null || valor.toString().isEmpty) {
+      return null;
+    }
+
+    try {
+      return base64Decode(valor.toString());
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static DateTime? _converterData(dynamic valor) {
+    if (valor == null) {
+      return null;
+    }
+
+    final milissegundos = valor is int
+        ? valor
+        : int.tryParse(valor.toString());
+
+    if (milissegundos == null) {
+      return null;
+    }
+
+    return DateTime.fromMillisecondsSinceEpoch(milissegundos);
   }
 }

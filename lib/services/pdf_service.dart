@@ -5,7 +5,6 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
 import '../models/ordem_servico.dart';
-import '../models/configuracao_empresa.dart';
 import '../services/configuracao_service.dart';
 
 class PdfService {
@@ -280,19 +279,40 @@ class PdfService {
             ),
           ],
 
-          pw.SizedBox(height: 55),
+          if (ordem.dataConclusao != null) ...[
+            pw.SizedBox(height: 28),
+            _titulo('Finalização do serviço'),
+            pw.Container(
+              width: double.infinity,
+              padding: const pw.EdgeInsets.all(12),
+              decoration: pw.BoxDecoration(
+                color: PdfColors.grey100,
+                borderRadius: pw.BorderRadius.circular(5),
+              ),
+              child: _linha(
+                'Concluído em',
+                _dataHora(ordem.dataConclusao!),
+              ),
+            ),
+          ],
+
+          pw.SizedBox(height: 35),
 
           pw.Row(
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: pw.CrossAxisAlignment.end,
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
               _assinatura(
                 titulo: 'Cliente / Responsável',
+                nome: ordem.nomeAssinanteCliente,
+                assinatura: ordem.assinaturaCliente,
               ),
               _assinatura(
-                titulo: configuracao.responsavelTecnico.isEmpty
-                    ? 'Responsável Técnico'
-                    : configuracao.responsavelTecnico,
+                titulo: 'Técnico responsável',
+                nome: ordem.nomeAssinanteTecnico.isEmpty
+                    ? ordem.tecnico
+                    : ordem.nomeAssinanteTecnico,
+                assinatura: ordem.assinaturaTecnico,
               ),
             ],
           ),
@@ -415,16 +435,39 @@ class PdfService {
 
   static pw.Widget _assinatura({
     required String titulo,
+    required String nome,
+    required Uint8List? assinatura,
   }) {
     return pw.SizedBox(
       width: 210,
       child: pw.Column(
         children: [
           pw.Container(
+            height: 75,
+            alignment: pw.Alignment.center,
+            child: assinatura == null
+                ? pw.SizedBox()
+                : pw.Image(
+                    pw.MemoryImage(assinatura),
+                    height: 70,
+                    width: 200,
+                    fit: pw.BoxFit.contain,
+                  ),
+          ),
+          pw.Container(
             height: 1,
             color: PdfColors.black,
           ),
           pw.SizedBox(height: 6),
+          pw.Text(
+            nome.isEmpty ? 'Nome não informado' : nome,
+            textAlign: pw.TextAlign.center,
+            style: pw.TextStyle(
+              fontSize: 10,
+              fontWeight: pw.FontWeight.bold,
+            ),
+          ),
+          pw.SizedBox(height: 3),
           pw.Text(
             titulo,
             textAlign: pw.TextAlign.center,
@@ -442,5 +485,14 @@ class PdfService {
     final mes = data.month.toString().padLeft(2, '0');
 
     return '$dia/$mes/${data.year}';
+  }
+
+  static String _dataHora(DateTime data) {
+    final dia = data.day.toString().padLeft(2, '0');
+    final mes = data.month.toString().padLeft(2, '0');
+    final hora = data.hour.toString().padLeft(2, '0');
+    final minuto = data.minute.toString().padLeft(2, '0');
+
+    return '$dia/$mes/${data.year} às $hora:$minuto';
   }
 }

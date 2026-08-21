@@ -183,9 +183,9 @@ class _OrcamentosPageState extends State<OrcamentosPage> {
         orcamento,
       );
 
-      await Printing.layoutPdf(
-        name: '${orcamento.numero}.pdf',
-        onLayout: (_) async => bytes,
+      await Printing.sharePdf(
+        bytes: bytes,
+        filename: '${orcamento.numero}.pdf',
       );
     } catch (erro) {
       if (!mounted) return;
@@ -786,7 +786,7 @@ class _OrcamentoCard
                         SizedBox(
                           width: 10,
                         ),
-                        Text('Gerar PDF'),
+                        Text('Baixar PDF'),
                       ],
                     ),
                   ),

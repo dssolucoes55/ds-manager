@@ -7,6 +7,7 @@ import 'package:printing/printing.dart';
 import '../../models/ordem_servico.dart';
 import '../../services/ordem_servico_service.dart';
 import '../../services/pdf_service.dart';
+import 'finalizar_ordem_servico_dialog.dart';
 
 class OrdemServicoDetalhe extends StatefulWidget {
   final OrdemServico ordem;
@@ -119,6 +120,55 @@ class _OrdemServicoDetalheState
     }
   }
 
+  Future<void> _concluirServico() async {
+    final ordemFinalizada =
+        await showDialog<OrdemServico>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return FinalizarOrdemServicoDialog(
+          ordem: _ordem,
+        );
+      },
+    );
+
+    if (ordemFinalizada == null) {
+      return;
+    }
+
+    try {
+      await OrdemServicoService.atualizar(
+        ordemFinalizada,
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _ordem = ordemFinalizada;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: Colors.green,
+          content: Text(
+            'Serviço concluído e assinaturas salvas com sucesso.',
+          ),
+        ),
+      );
+    } catch (erro) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: Colors.red,
+          content: Text(
+            'Erro ao finalizar o serviço: $erro',
+          ),
+        ),
+      );
+    }
+  }
+
   Future<void> _gerarPdf() async {
     if (_gerandoPdf) return;
 
@@ -132,9 +182,9 @@ class _OrdemServicoDetalheState
         _ordem,
       );
 
-      await Printing.layoutPdf(
-        name: '${_ordem.numero}.pdf',
-        onLayout: (_) async => arquivo,
+      await Printing.sharePdf(
+        bytes: arquivo,
+        filename: '${_ordem.numero}.pdf',
       );
     } catch (erro) {
       if (!mounted) return;
@@ -334,7 +384,7 @@ class _OrdemServicoDetalheState
 
         actions: [
           IconButton(
-            tooltip: 'Gerar PDF',
+            tooltip: 'Baixar PDF',
             onPressed:
                 _gerandoPdf
                     ? null
@@ -346,7 +396,11 @@ class _OrdemServicoDetalheState
 
           PopupMenuButton<String>(
             onSelected: (status) {
-              _alterarStatus(status);
+              if (status == 'Concluída') {
+                _concluirServico();
+              } else {
+                _alterarStatus(status);
+              }
             },
             itemBuilder: (context) =>
                 const [
@@ -672,7 +726,7 @@ class _OrdemServicoDetalheState
                       label: Text(
                         _gerandoPdf
                             ? 'Gerando PDF...'
-                            : 'Gerar PDF',
+                            : 'Baixar PDF',
                       ),
                     ),
 
@@ -697,11 +751,8 @@ class _OrdemServicoDetalheState
                         backgroundColor:
                             Colors.green,
                       ),
-                      onPressed: () {
-                        _alterarStatus(
-                          'Concluída',
-                        );
-                      },
+                      onPressed:
+                          _concluirServico,
                       icon: const Icon(
                         Icons.check,
                       ),

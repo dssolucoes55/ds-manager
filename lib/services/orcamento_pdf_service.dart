@@ -232,6 +232,42 @@ class OrcamentoPdfService {
 
           pw.SizedBox(height: 24),
 
+          if (orcamento.materiais.isNotEmpty) ...[
+            _titulo('Materiais'),
+            pw.SizedBox(height: 8),
+            pw.Table(
+              border: pw.TableBorder.all(color: PdfColors.grey400),
+              columnWidths: const {
+                0: pw.FlexColumnWidth(4),
+                1: pw.FlexColumnWidth(1.2),
+                2: pw.FlexColumnWidth(1.8),
+                3: pw.FlexColumnWidth(1.8),
+              },
+              children: [
+                pw.TableRow(
+                  decoration: const pw.BoxDecoration(color: PdfColors.grey300),
+                  children: [
+                    _celulaTabela('Descrição', negrito: true),
+                    _celulaTabela('Qtd.', negrito: true, centralizado: true),
+                    _celulaTabela('Unitário', negrito: true, centralizado: true),
+                    _celulaTabela('Total', negrito: true, centralizado: true),
+                  ],
+                ),
+                ...orcamento.materiais.map(
+                  (item) => pw.TableRow(
+                    children: [
+                      _celulaTabela(item.descricao),
+                      _celulaTabela(_quantidade(item.quantidade), centralizado: true),
+                      _celulaTabela(_valor(item.valorUnitario), centralizado: true),
+                      _celulaTabela(_valor(item.valorTotal), centralizado: true),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            pw.SizedBox(height: 24),
+          ],
+
           _titulo('Valor do orçamento'),
 
           pw.Container(
@@ -244,27 +280,19 @@ class OrcamentoPdfService {
               borderRadius:
                   pw.BorderRadius.circular(5),
             ),
-            child: pw.Row(
-              mainAxisAlignment:
-                  pw.MainAxisAlignment.spaceBetween,
+            child: pw.Column(
               children: [
-                pw.Text(
-                  'VALOR TOTAL',
-                  style: pw.TextStyle(
-                    fontSize: 14,
-                    fontWeight:
-                        pw.FontWeight.bold,
-                  ),
+                _linhaValor(
+                  'Subtotal dos materiais',
+                  orcamento.subtotalMateriais,
                 ),
-                pw.Text(
-                  _valor(orcamento.valor),
-                  style: pw.TextStyle(
-                    fontSize: 18,
-                    fontWeight:
-                        pw.FontWeight.bold,
-                    color: PdfColors.red,
-                  ),
+                pw.SizedBox(height: 8),
+                _linhaValor(
+                  'Mão de obra',
+                  orcamento.valorMaoDeObra,
                 ),
+                pw.Divider(height: 18, color: PdfColors.grey400),
+                _linhaValor('VALOR TOTAL', orcamento.valor, destaque: true),
               ],
             ),
           ),
@@ -286,15 +314,15 @@ class OrcamentoPdfService {
                   pw.CrossAxisAlignment.start,
               children: [
                 pw.Text(
-                  '• Os serviços serão executados conforme a descrição apresentada neste orçamento.',
+                  '- Os serviços serão executados conforme a descrição apresentada neste orçamento.',
                 ),
                 pw.SizedBox(height: 5),
                 pw.Text(
-                  '• Alterações de escopo ou serviços adicionais deverão ser previamente aprovados.',
+                  '- Alterações de escopo ou serviços adicionais deverão ser previamente aprovados.',
                 ),
                 pw.SizedBox(height: 5),
                 pw.Text(
-                  '• Materiais e condições não descritos neste orçamento deverão ser acordados separadamente.',
+                  '- Materiais e condições não descritos neste orçamento deverão ser acordados separadamente.',
                 ),
               ],
             ),
@@ -462,6 +490,51 @@ class OrcamentoPdfService {
     );
   }
 
+  static pw.Widget _celulaTabela(
+    String texto, {
+    bool negrito = false,
+    bool centralizado = false,
+  }) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.all(7),
+      child: pw.Text(
+        texto,
+        textAlign: centralizado ? pw.TextAlign.center : pw.TextAlign.left,
+        style: pw.TextStyle(
+          fontSize: 9,
+          fontWeight: negrito ? pw.FontWeight.bold : pw.FontWeight.normal,
+        ),
+      ),
+    );
+  }
+
+  static pw.Widget _linhaValor(
+    String titulo,
+    double valor, {
+    bool destaque = false,
+  }) {
+    return pw.Row(
+      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+      children: [
+        pw.Text(
+          titulo,
+          style: pw.TextStyle(
+            fontSize: destaque ? 14 : 11,
+            fontWeight: destaque ? pw.FontWeight.bold : pw.FontWeight.normal,
+          ),
+        ),
+        pw.Text(
+          _valor(valor),
+          style: pw.TextStyle(
+            fontSize: destaque ? 18 : 11,
+            fontWeight: pw.FontWeight.bold,
+            color: destaque ? PdfColors.red : PdfColors.black,
+          ),
+        ),
+      ],
+    );
+  }
+
   static String _data(
     DateTime data,
   ) {
@@ -477,6 +550,21 @@ class OrcamentoPdfService {
   static String _valor(
     double valor,
   ) {
-    return 'R\$ ${valor.toStringAsFixed(2).replaceAll('.', ',')}';
+    final partes = valor.toStringAsFixed(2).split('.');
+    final inteiro = partes[0];
+    final centavos = partes[1];
+    final formatado = inteiro.replaceAllMapped(
+      RegExp(r'\B(?=(\d{3})+(?!\d))'),
+      (_) => '.',
+    );
+
+    return 'R\$ $formatado,$centavos';
+  }
+
+  static String _quantidade(double quantidade) {
+    if (quantidade == quantidade.roundToDouble()) {
+      return quantidade.toInt().toString();
+    }
+    return quantidade.toStringAsFixed(2).replaceAll('.', ',');
   }
 }
