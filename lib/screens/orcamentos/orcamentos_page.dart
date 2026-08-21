@@ -4,8 +4,8 @@ import 'package:printing/printing.dart';
 import '../../models/orcamento.dart';
 import '../../models/ordem_servico.dart';
 import '../../services/cliente_service.dart';
-import '../../services/orcamento_service.dart';
 import '../../services/orcamento_pdf_service.dart';
+import '../../services/orcamento_service.dart';
 import '../../services/ordem_servico_service.dart';
 import 'orcamento_form.dart';
 
@@ -19,13 +19,27 @@ class OrcamentosPage extends StatefulWidget {
 class _OrcamentosPageState extends State<OrcamentosPage> {
   bool _gerandoOs = false;
 
-  Future<void> _abrirFormulario() async {
-    await Navigator.push<bool>(
+  Future<void> _abrirFormulario([Orcamento? orcamento]) async {
+    final editando = orcamento != null;
+    final salvou = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
-        builder: (_) => const OrcamentoForm(),
+        builder: (_) => OrcamentoForm(orcamento: orcamento),
       ),
     );
+
+    if (!mounted) return;
+    if (salvou == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            editando
+                ? 'Orçamento atualizado com sucesso.'
+                : 'Orçamento cadastrado com sucesso.',
+          ),
+        ),
+      );
+    }
   }
 
   Future<void> _alterarStatus(
@@ -33,46 +47,31 @@ class _OrcamentosPageState extends State<OrcamentosPage> {
     String novoStatus,
   ) async {
     try {
-      final atualizado = orcamento.copyWith(
-        status: novoStatus,
+      await OrcamentoService.atualizar(
+        orcamento.copyWith(status: novoStatus),
       );
-
-      await OrcamentoService.atualizar(atualizado);
-
       if (!mounted) return;
-
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Orçamento marcado como $novoStatus.',
-          ),
-        ),
+        SnackBar(content: Text('Orçamento marcado como $novoStatus.')),
       );
     } catch (erro) {
       if (!mounted) return;
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           backgroundColor: Colors.red,
-          content: Text(
-            'Erro ao alterar orçamento: $erro',
-          ),
+          content: Text('Erro ao alterar orçamento: $erro'),
         ),
       );
     }
   }
 
-  Future<void> _gerarOrdemServico(
-    Orcamento orcamento,
-  ) async {
+  Future<void> _gerarOrdemServico(Orcamento orcamento) async {
     if (_gerandoOs) return;
 
     if (orcamento.status.toLowerCase() != 'aprovado') {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'O orçamento precisa estar aprovado para gerar uma OS.',
-          ),
+          content: Text('O orçamento precisa estar aprovado para gerar uma OS.'),
         ),
       );
       return;
@@ -81,45 +80,32 @@ class _OrcamentosPageState extends State<OrcamentosPage> {
     if (orcamento.convertidoEmOs) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'Este orçamento já foi convertido em Ordem de Serviço.',
-          ),
+          content: Text('Este orçamento já foi convertido em Ordem de Serviço.'),
         ),
       );
       return;
     }
 
-    setState(() {
-      _gerandoOs = true;
-    });
+    setState(() => _gerandoOs = true);
 
     try {
-      final clientes =
-          await ClienteService.carregarClientes();
-
+      final clientes = await ClienteService.carregarClientes();
       final encontrados = clientes.where(
         (cliente) => cliente.nome == orcamento.cliente,
       );
 
       if (encontrados.isEmpty) {
         if (!mounted) return;
-
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text(
-              'O cliente deste orçamento não foi encontrado.',
-            ),
+            content: Text('O cliente deste orçamento não foi encontrado.'),
           ),
         );
-
         return;
       }
 
       final cliente = encontrados.first;
-
-      final numeroOs =
-          await OrdemServicoService.gerarNumero();
-
+      final numeroOs = await OrdemServicoService.gerarNumero();
       final novaOrdem = OrdemServico(
         id: '',
         numero: numeroOs,
@@ -138,126 +124,81 @@ class _OrcamentosPageState extends State<OrcamentosPage> {
       );
 
       await OrdemServicoService.adicionar(novaOrdem);
-
-      final atualizado = orcamento.copyWith(
-        convertidoEmOs: true,
+      await OrcamentoService.atualizar(
+        orcamento.copyWith(convertidoEmOs: true),
       );
 
-      await OrcamentoService.atualizar(atualizado);
-
       if (!mounted) return;
-
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            '$numeroOs criada com sucesso.',
-          ),
-        ),
+        SnackBar(content: Text('$numeroOs criada com sucesso.')),
       );
     } catch (erro) {
       if (!mounted) return;
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           backgroundColor: Colors.red,
-          content: Text(
-            'Erro ao gerar Ordem de Serviço: $erro',
-          ),
+          content: Text('Erro ao gerar Ordem de Serviço: $erro'),
         ),
       );
     } finally {
-      if (mounted) {
-        setState(() {
-          _gerandoOs = false;
-        });
-      }
+      if (mounted) setState(() => _gerandoOs = false);
     }
   }
 
-  Future<void> _gerarPdf(
-    Orcamento orcamento,
-  ) async {
+  Future<void> _gerarPdf(Orcamento orcamento) async {
     try {
-      final bytes =
-          await OrcamentoPdfService.gerarOrcamento(
-        orcamento,
-      );
-
+      final bytes = await OrcamentoPdfService.gerarOrcamento(orcamento);
       await Printing.sharePdf(
         bytes: bytes,
         filename: '${orcamento.numero}.pdf',
       );
     } catch (erro) {
       if (!mounted) return;
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           backgroundColor: Colors.red,
-          content: Text(
-            'Erro ao gerar PDF do orçamento: $erro',
-          ),
+          content: Text('Erro ao gerar PDF do orçamento: $erro'),
         ),
       );
     }
   }
 
-  Future<void> _excluirOrcamento(
-    Orcamento orcamento,
-  ) async {
+  Future<void> _excluirOrcamento(Orcamento orcamento) async {
     final confirmar = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('Excluir orçamento'),
-          content: Text(
-            'Deseja realmente excluir o orçamento ${orcamento.numero}?',
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Excluir orçamento'),
+        content: Text(
+          'Deseja realmente excluir o orçamento ${orcamento.numero}?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancelar'),
           ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(dialogContext).pop(false);
-              },
-              child: const Text('Cancelar'),
-            ),
-            FilledButton(
-              style: FilledButton.styleFrom(
-                backgroundColor: Colors.red,
-              ),
-              onPressed: () {
-                Navigator.of(dialogContext).pop(true);
-              },
-              child: const Text('Excluir'),
-            ),
-          ],
-        );
-      },
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Excluir'),
+          ),
+        ],
+      ),
     );
 
-    if (!mounted || confirmar != true) {
-      return;
-    }
+    if (!mounted || confirmar != true) return;
 
     try {
       await OrcamentoService.remover(orcamento);
-
       if (!mounted) return;
-
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Orçamento excluído com sucesso.',
-          ),
-        ),
+        const SnackBar(content: Text('Orçamento excluído com sucesso.')),
       );
     } catch (erro) {
       if (!mounted) return;
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           backgroundColor: Colors.red,
-          content: Text(
-            'Erro ao excluir orçamento: $erro',
-          ),
+          content: Text('Erro ao excluir orçamento: $erro'),
         ),
       );
     }
@@ -268,12 +209,8 @@ class _OrcamentosPageState extends State<OrcamentosPage> {
   }
 
   String _formatarData(DateTime data) {
-    final dia =
-        data.day.toString().padLeft(2, '0');
-
-    final mes =
-        data.month.toString().padLeft(2, '0');
-
+    final dia = data.day.toString().padLeft(2, '0');
+    final mes = data.month.toString().padLeft(2, '0');
     return '$dia/$mes/${data.year}';
   }
 
@@ -281,10 +218,8 @@ class _OrcamentosPageState extends State<OrcamentosPage> {
     switch (status.toLowerCase()) {
       case 'aprovado':
         return Colors.green;
-
       case 'reprovado':
         return Colors.red;
-
       default:
         return Colors.orange;
     }
@@ -294,120 +229,56 @@ class _OrcamentosPageState extends State<OrcamentosPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
-
       appBar: AppBar(
         title: const Text('Orçamentos'),
         backgroundColor: const Color(0xFFE30613),
         foregroundColor: Colors.white,
       ),
-
-      floatingActionButton:
-          FloatingActionButton.extended(
-        backgroundColor:
-            const Color(0xFFE30613),
+      floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: const Color(0xFFE30613),
         foregroundColor: Colors.white,
         onPressed: _abrirFormulario,
         icon: const Icon(Icons.add),
-        label: const Text(
-          'Novo Orçamento',
-        ),
+        label: const Text('Novo Orçamento'),
       ),
-
       body: StreamBuilder<List<Orcamento>>(
-        stream:
-            OrcamentoService.observarOrcamentos(),
-
+        stream: OrcamentoService.observarOrcamentos(),
         builder: (context, snapshot) {
           if (snapshot.hasError) {
             return Center(
               child: Text(
                 'Erro ao carregar orçamentos:\n${snapshot.error}',
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Colors.red,
-                ),
+                style: const TextStyle(color: Colors.red),
               ),
             );
           }
-
           if (!snapshot.hasData) {
             return const Center(
-              child: CircularProgressIndicator(
-                color: Color(0xFFE30613),
-              ),
+              child: CircularProgressIndicator(color: Color(0xFFE30613)),
             );
           }
 
-          final orcamentos =
-              snapshot.data ?? [];
-
-          if (orcamentos.isEmpty) {
-            return _estadoVazio();
-          }
+          final orcamentos = snapshot.data ?? [];
+          if (orcamentos.isEmpty) return _estadoVazio();
 
           return ListView.builder(
-            padding:
-                const EdgeInsets.all(20),
-            itemCount:
-                orcamentos.length,
-
-            itemBuilder:
-                (context, index) {
-              final orcamento =
-                  orcamentos[index];
-
+            padding: const EdgeInsets.all(20),
+            itemCount: orcamentos.length,
+            itemBuilder: (context, index) {
+              final orcamento = orcamentos[index];
               return _OrcamentoCard(
                 orcamento: orcamento,
-
-                valorFormatado:
-                    _formatarValor(
-                  orcamento.valor,
-                ),
-
-                dataFormatada:
-                    _formatarData(
-                  orcamento.data,
-                ),
-
-                corStatus:
-                    _corStatus(
-                  orcamento.status,
-                ),
-
-                gerandoOs:
-                    _gerandoOs,
-
-                onAprovar: () {
-                  _alterarStatus(
-                    orcamento,
-                    'Aprovado',
-                  );
-                },
-
-                onReprovar: () {
-                  _alterarStatus(
-                    orcamento,
-                    'Reprovado',
-                  );
-                },
-
-                onGerarOs: () {
-                  _gerarOrdemServico(
-                    orcamento,
-                  );
-                },
-
-                onPdf: () {
-                  _gerarPdf(
-                    orcamento,
-                  );
-                },
-
-                onExcluir: () {
-                  _excluirOrcamento(
-                    orcamento,
-                  );
-                },
+                valorFormatado: _formatarValor(orcamento.valor),
+                dataFormatada: _formatarData(orcamento.data),
+                corStatus: _corStatus(orcamento.status),
+                gerandoOs: _gerandoOs,
+                onEditar: () => _abrirFormulario(orcamento),
+                onAprovar: () => _alterarStatus(orcamento, 'Aprovado'),
+                onReprovar: () => _alterarStatus(orcamento, 'Reprovado'),
+                onGerarOs: () => _gerarOrdemServico(orcamento),
+                onPdf: () => _gerarPdf(orcamento),
+                onExcluir: () => _excluirOrcamento(orcamento),
               );
             },
           );
@@ -420,48 +291,31 @@ class _OrcamentosPageState extends State<OrcamentosPage> {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
-
         child: Column(
-          mainAxisAlignment:
-              MainAxisAlignment.center,
-
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Icon(
               Icons.request_quote_outlined,
               size: 80,
               color: Color(0xFFE30613),
             ),
-
             const SizedBox(height: 18),
-
             const Text(
               'Nenhum orçamento cadastrado.',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 21,
-                fontWeight:
-                    FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 21, fontWeight: FontWeight.bold),
             ),
-
             const SizedBox(height: 8),
-
             const Text(
               'Clique em “Novo Orçamento” para criar o primeiro.',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.black54,
-              ),
+              style: TextStyle(color: Colors.black54),
             ),
-
             const SizedBox(height: 22),
-
             FilledButton.icon(
               onPressed: _abrirFormulario,
               icon: const Icon(Icons.add),
-              label: const Text(
-                'Criar orçamento',
-              ),
+              label: const Text('Criar orçamento'),
             ),
           ],
         ),
@@ -470,16 +324,13 @@ class _OrcamentosPageState extends State<OrcamentosPage> {
   }
 }
 
-class _OrcamentoCard
-    extends StatelessWidget {
+class _OrcamentoCard extends StatelessWidget {
   final Orcamento orcamento;
-
   final String valorFormatado;
   final String dataFormatada;
   final Color corStatus;
-
   final bool gerandoOs;
-
+  final VoidCallback onEditar;
   final VoidCallback onAprovar;
   final VoidCallback onReprovar;
   final VoidCallback onGerarOs;
@@ -492,6 +343,7 @@ class _OrcamentoCard
     required this.dataFormatada,
     required this.corStatus,
     required this.gerandoOs,
+    required this.onEditar,
     required this.onAprovar,
     required this.onReprovar,
     required this.onGerarOs,
@@ -501,280 +353,167 @@ class _OrcamentoCard
 
   @override
   Widget build(BuildContext context) {
-    final aprovado =
-        orcamento.status
-                .toLowerCase() ==
-            'aprovado';
+    final aprovado = orcamento.status.toLowerCase() == 'aprovado';
 
     return Card(
       elevation: 2,
-      margin:
-          const EdgeInsets.only(
-        bottom: 14,
-      ),
-
-      shape: RoundedRectangleBorder(
-        borderRadius:
-            BorderRadius.circular(14),
-      ),
-
+      margin: const EdgeInsets.only(bottom: 14),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: Padding(
-        padding:
-            const EdgeInsets.all(14),
-
+        padding: const EdgeInsets.all(14),
         child: Row(
-          crossAxisAlignment:
-              CrossAxisAlignment.start,
-
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const CircleAvatar(
-              backgroundColor:
-                  Color(0xFFE30613),
-              foregroundColor:
-                  Colors.white,
-              child: Icon(
-                Icons.request_quote,
-              ),
+              backgroundColor: Color(0xFFE30613),
+              foregroundColor: Colors.white,
+              child: Icon(Icons.request_quote),
             ),
-
             const SizedBox(width: 14),
-
             Expanded(
               child: Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
-
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     orcamento.numero,
-                    style:
-                        const TextStyle(
+                    style: const TextStyle(
                       fontSize: 17,
-                      fontWeight:
-                          FontWeight.bold,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-
-                  const SizedBox(
-                    height: 5,
-                  ),
-
-                  Text(
-                    orcamento.cliente,
-                    style:
-                        const TextStyle(
-                      fontSize: 15,
-                    ),
-                  ),
-
-                  if (orcamento
-                      .descricao
-                      .isNotEmpty) ...[
-                    const SizedBox(
-                      height: 8,
-                    ),
-
+                  const SizedBox(height: 5),
+                  Text(orcamento.cliente, style: const TextStyle(fontSize: 15)),
+                  if (orcamento.descricao.isNotEmpty) ...[
+                    const SizedBox(height: 8),
                     Text(
                       orcamento.descricao,
                       maxLines: 3,
-                      overflow:
-                          TextOverflow
-                              .ellipsis,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
-
-                  const SizedBox(
-                    height: 10,
-                  ),
-
+                  const SizedBox(height: 10),
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
-
                     children: [
                       Chip(
-                        avatar:
-                            const Icon(
-                          Icons.attach_money,
-                          size: 18,
-                        ),
-                        label: Text(
-                          valorFormatado,
-                        ),
+                        avatar: const Icon(Icons.attach_money, size: 18),
+                        label: Text(valorFormatado),
                       ),
-
                       Chip(
-                        avatar:
-                            const Icon(
-                          Icons
-                              .calendar_today,
-                          size: 18,
-                        ),
-                        label: Text(
-                          dataFormatada,
-                        ),
+                        avatar: const Icon(Icons.calendar_today, size: 18),
+                        label: Text(dataFormatada),
                       ),
-
                       Chip(
-                        backgroundColor:
-                            corStatus
-                                .withValues(
-                          alpha: 0.12,
-                        ),
+                        backgroundColor: corStatus.withValues(alpha: 0.12),
                         label: Text(
                           orcamento.status,
-                          style:
-                              TextStyle(
-                            color:
-                                corStatus,
-                            fontWeight:
-                                FontWeight
-                                    .bold,
+                          style: TextStyle(
+                            color: corStatus,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
                       ),
-
-                      if (orcamento
-                          .convertidoEmOs)
+                      if (orcamento.convertidoEmOs)
                         const Chip(
                           avatar: Icon(
                             Icons.check_circle,
                             size: 18,
-                            color:
-                                Colors.green,
+                            color: Colors.green,
                           ),
-                          label: Text(
-                            'OS gerada',
-                          ),
+                          label: Text('OS gerada'),
                         ),
                     ],
                   ),
-
-                  if (aprovado &&
-                      !orcamento
-                          .convertidoEmOs) ...[
-                    const SizedBox(
-                      height: 12,
-                    ),
-
+                  if (aprovado && !orcamento.convertidoEmOs) ...[
+                    const SizedBox(height: 12),
                     FilledButton.icon(
-                      onPressed:
-                          gerandoOs
-                              ? null
-                              : onGerarOs,
-
+                      onPressed: gerandoOs ? null : onGerarOs,
                       icon: gerandoOs
                           ? const SizedBox(
                               width: 17,
                               height: 17,
-                              child:
-                                  CircularProgressIndicator(
-                                strokeWidth:
-                                    2,
-                                color:
-                                    Colors.white,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
                               ),
                             )
-                          : const Icon(
-                              Icons
-                                  .assignment_add,
-                            ),
-
+                          : const Icon(Icons.assignment_add),
                       label: Text(
-                        gerandoOs
-                            ? 'Gerando OS...'
-                            : 'Gerar Ordem de Serviço',
+                        gerandoOs ? 'Gerando OS...' : 'Gerar Ordem de Serviço',
                       ),
                     ),
                   ],
                 ],
               ),
             ),
-
             PopupMenuButton<String>(
               onSelected: (opcao) {
                 switch (opcao) {
+                  case 'editar':
+                    onEditar();
+                    break;
                   case 'aprovar':
                     onAprovar();
                     break;
-
                   case 'reprovar':
                     onReprovar();
                     break;
-
                   case 'gerar_os':
-                    if (!gerandoOs) {
-                      onGerarOs();
-                    }
+                    if (!gerandoOs) onGerarOs();
                     break;
-
                   case 'pdf':
                     onPdf();
                     break;
-
                   case 'excluir':
                     onExcluir();
                     break;
                 }
               },
-
               itemBuilder: (context) {
                 return [
+                  const PopupMenuItem(
+                    value: 'editar',
+                    child: Row(
+                      children: [
+                        Icon(Icons.edit_outlined, color: Color(0xFFE30613)),
+                        SizedBox(width: 10),
+                        Text('Editar orçamento'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuDivider(),
                   const PopupMenuItem(
                     value: 'aprovar',
                     child: Row(
                       children: [
-                        Icon(
-                          Icons
-                              .check_circle_outline,
-                          color:
-                              Colors.green,
-                        ),
-                        SizedBox(
-                          width: 10,
-                        ),
+                        Icon(Icons.check_circle_outline, color: Colors.green),
+                        SizedBox(width: 10),
                         Text('Aprovar'),
                       ],
                     ),
                   ),
-
                   const PopupMenuItem(
                     value: 'reprovar',
                     child: Row(
                       children: [
-                        Icon(
-                          Icons
-                              .cancel_outlined,
-                          color:
-                              Colors.red,
-                        ),
-                        SizedBox(
-                          width: 10,
-                        ),
+                        Icon(Icons.cancel_outlined, color: Colors.red),
+                        SizedBox(width: 10),
                         Text('Reprovar'),
                       ],
                     ),
                   ),
-
-                  if (aprovado &&
-                      !orcamento
-                          .convertidoEmOs)
+                  if (aprovado && !orcamento.convertidoEmOs)
                     const PopupMenuItem(
                       value: 'gerar_os',
                       child: Row(
                         children: [
-                          Icon(
-                            Icons
-                                .assignment_add,
-                          ),
-                          SizedBox(
-                            width: 10,
-                          ),
+                          Icon(Icons.assignment_add),
+                          SizedBox(width: 10),
                           Text('Gerar OS'),
                         ],
                       ),
                     ),
-
                   const PopupMenuItem(
                     value: 'pdf',
                     child: Row(
@@ -783,29 +522,18 @@ class _OrcamentoCard
                           Icons.picture_as_pdf_outlined,
                           color: Color(0xFFE30613),
                         ),
-                        SizedBox(
-                          width: 10,
-                        ),
+                        SizedBox(width: 10),
                         Text('Baixar PDF'),
                       ],
                     ),
                   ),
-
                   const PopupMenuDivider(),
-
                   const PopupMenuItem(
                     value: 'excluir',
                     child: Row(
                       children: [
-                        Icon(
-                          Icons
-                              .delete_outline,
-                          color:
-                              Colors.red,
-                        ),
-                        SizedBox(
-                          width: 10,
-                        ),
+                        Icon(Icons.delete_outline, color: Colors.red),
+                        SizedBox(width: 10),
                         Text('Excluir'),
                       ],
                     ),

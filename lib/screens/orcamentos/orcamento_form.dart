@@ -6,7 +6,12 @@ import '../../services/cliente_service.dart';
 import '../../services/orcamento_service.dart';
 
 class OrcamentoForm extends StatefulWidget {
-  const OrcamentoForm({super.key});
+  final Orcamento? orcamento;
+
+  const OrcamentoForm({
+    super.key,
+    this.orcamento,
+  });
 
   @override
   State<OrcamentoForm> createState() => _OrcamentoFormState();
@@ -16,6 +21,21 @@ class _MaterialLinha {
   final descricao = TextEditingController();
   final quantidade = TextEditingController(text: '1');
   final valorUnitario = TextEditingController();
+
+  _MaterialLinha();
+
+  _MaterialLinha.fromItem(ItemMaterialOrcamento item) {
+    descricao.text = item.descricao;
+    quantidade.text = _numeroParaCampo(item.quantidade);
+    valorUnitario.text = item.valorUnitario.toStringAsFixed(2).replaceAll('.', ',');
+  }
+
+  static String _numeroParaCampo(double valor) {
+    if (valor == valor.roundToDouble()) {
+      return valor.toInt().toString();
+    }
+    return valor.toString().replaceAll('.', ',');
+  }
 
   void dispose() {
     descricao.dispose();
@@ -28,8 +48,29 @@ class _OrcamentoFormState extends State<OrcamentoForm> {
   String? _clienteSelecionadoId;
   final _descricaoController = TextEditingController();
   final _maoDeObraController = TextEditingController();
-  final List<_MaterialLinha> _materiais = [_MaterialLinha()];
+  final List<_MaterialLinha> _materiais = [];
   bool _salvando = false;
+
+  bool get _editando => widget.orcamento != null;
+
+  @override
+  void initState() {
+    super.initState();
+
+    final orcamento = widget.orcamento;
+    if (orcamento != null) {
+      _descricaoController.text = orcamento.descricao;
+      _maoDeObraController.text =
+          orcamento.valorMaoDeObra.toStringAsFixed(2).replaceAll('.', ',');
+      _materiais.addAll(
+        orcamento.materiais.map(_MaterialLinha.fromItem),
+      );
+    }
+
+    if (_materiais.isEmpty) {
+      _materiais.add(_MaterialLinha());
+    }
+  }
 
   @override
   void dispose() {
@@ -53,8 +94,9 @@ class _OrcamentoFormState extends State<OrcamentoForm> {
     return _numero(item.quantidade.text) * _numero(item.valorUnitario.text);
   }
 
-  double get _subtotalMateriais =>
-      _materiais.fold(0, (total, item) => total + _totalLinha(item));
+  double get _subtotalMateriais {
+    return _materiais.fold(0, (total, item) => total + _totalLinha(item));
+  }
 
   double get _valorMaoDeObra => _numero(_maoDeObraController.text);
   double get _valorTotal => _subtotalMateriais + _valorMaoDeObra;
@@ -71,6 +113,9 @@ class _OrcamentoFormState extends State<OrcamentoForm> {
     setState(() {
       final removido = _materiais.removeAt(indice);
       removido.dispose();
+      if (_materiais.isEmpty) {
+        _materiais.add(_MaterialLinha());
+      }
     });
   }
 
@@ -88,8 +133,7 @@ class _OrcamentoFormState extends State<OrcamentoForm> {
       final nome = linha.descricao.text.trim();
       final quantidade = _numero(linha.quantidade.text);
       final unitario = _numero(linha.valorUnitario.text);
-      final linhaVazia = nome.isEmpty &&
-          linha.valorUnitario.text.trim().isEmpty;
+      final linhaVazia = nome.isEmpty && linha.valorUnitario.text.trim().isEmpty;
 
       if (linhaVazia) continue;
       if (nome.isEmpty || quantidade <= 0 || unitario < 0) {
@@ -115,26 +159,42 @@ class _OrcamentoFormState extends State<OrcamentoForm> {
     setState(() => _salvando = true);
 
     try {
-      final numero = await OrcamentoService.gerarNumero();
-      final novoOrcamento = Orcamento(
-        id: '',
-        numero: numero,
-        cliente: cliente.nome,
-        data: DateTime.now(),
-        valor: _valorTotal,
-        valorMaoDeObra: _valorMaoDeObra,
-        materiais: materiaisValidos,
-        status: 'Aguardando',
-        descricao: descricao,
-        convertidoEmOs: false,
-      );
+      if (_editando) {
+        final atualizado = widget.orcamento!.copyWith(
+          cliente: cliente.nome,
+          valor: _valorTotal,
+          valorMaoDeObra: _valorMaoDeObra,
+          materiais: materiaisValidos,
+          descricao: descricao,
+        );
+        await OrcamentoService.atualizar(atualizado);
+      } else {
+        final numero = await OrcamentoService.gerarNumero();
+        final novoOrcamento = Orcamento(
+          id: '',
+          numero: numero,
+          cliente: cliente.nome,
+          data: DateTime.now(),
+          valor: _valorTotal,
+          valorMaoDeObra: _valorMaoDeObra,
+          materiais: materiaisValidos,
+          status: 'Aguardando',
+          descricao: descricao,
+          convertidoEmOs: false,
+        );
+        await OrcamentoService.adicionar(novoOrcamento);
+      }
 
-      await OrcamentoService.adicionar(novoOrcamento);
       if (!mounted) return;
       Navigator.pop(context, true);
     } catch (erro) {
       if (!mounted) return;
-      _mensagem('Erro ao salvar orçamento: $erro', erro: true);
+      _mensagem(
+        _editando
+            ? 'Erro ao atualizar orçamento: $erro'
+            : 'Erro ao salvar orçamento: $erro',
+        erro: true,
+      );
     } finally {
       if (mounted) setState(() => _salvando = false);
     }
@@ -153,7 +213,7 @@ class _OrcamentoFormState extends State<OrcamentoForm> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Novo Orçamento'),
+        title: Text(_editando ? 'Editar Orçamento' : 'Novo Orçamento'),
         backgroundColor: const Color(0xFFE30613),
         foregroundColor: Colors.white,
       ),
@@ -161,18 +221,35 @@ class _OrcamentoFormState extends State<OrcamentoForm> {
         stream: ClienteService.observarClientes(),
         builder: (context, snapshot) {
           if (snapshot.hasError) {
-            return Center(child: Text('Erro ao carregar clientes:\n${snapshot.error}'));
+            return Center(
+              child: Text('Erro ao carregar clientes:\n${snapshot.error}'),
+            );
           }
           if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
           }
 
           final clientes = snapshot.data ?? [];
+
+          if (_clienteSelecionadoId == null && widget.orcamento != null) {
+            for (final cliente in clientes) {
+              if (cliente.nome == widget.orcamento!.cliente) {
+                _clienteSelecionadoId = cliente.id;
+                break;
+              }
+            }
+          }
+
+          final clienteValido = clientes.any(
+            (cliente) => cliente.id == _clienteSelecionadoId,
+          );
+
           return ListView(
             padding: const EdgeInsets.all(20),
             children: [
               DropdownButtonFormField<String>(
-                initialValue: _clienteSelecionadoId,
+                initialValue:
+                    clienteValido ? _clienteSelecionadoId : null,
                 isExpanded: true,
                 decoration: const InputDecoration(
                   labelText: 'Cliente',
@@ -180,13 +257,16 @@ class _OrcamentoFormState extends State<OrcamentoForm> {
                   border: OutlineInputBorder(),
                 ),
                 items: clientes
-                    .map((cliente) => DropdownMenuItem(
-                          value: cliente.id,
-                          child: Text(cliente.nome),
-                        ))
+                    .map(
+                      (cliente) => DropdownMenuItem(
+                        value: cliente.id,
+                        child: Text(cliente.nome),
+                      ),
+                    )
                     .toList(),
-                onChanged: (valor) =>
-                    setState(() => _clienteSelecionadoId = valor),
+                onChanged: (valor) {
+                  setState(() => _clienteSelecionadoId = valor);
+                },
               ),
               const SizedBox(height: 20),
               TextField(
@@ -216,7 +296,8 @@ class _OrcamentoFormState extends State<OrcamentoForm> {
               const SizedBox(height: 24),
               TextField(
                 controller: _maoDeObraController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
                 onChanged: (_) => setState(() {}),
                 decoration: const InputDecoration(
                   labelText: 'Valor da mão de obra',
@@ -257,8 +338,14 @@ class _OrcamentoFormState extends State<OrcamentoForm> {
                             color: Colors.white,
                           ),
                         )
-                      : const Icon(Icons.save),
-                  label: Text(_salvando ? 'SALVANDO...' : 'SALVAR ORÇAMENTO'),
+                      : Icon(_editando ? Icons.check : Icons.save),
+                  label: Text(
+                    _salvando
+                        ? 'SALVANDO...'
+                        : _editando
+                            ? 'SALVAR ALTERAÇÕES'
+                            : 'SALVAR ORÇAMENTO',
+                  ),
                 ),
               ),
             ],
@@ -279,8 +366,10 @@ class _OrcamentoFormState extends State<OrcamentoForm> {
             Row(
               children: [
                 Expanded(
-                  child: Text('Material ${indice + 1}',
-                      style: const TextStyle(fontWeight: FontWeight.bold)),
+                  child: Text(
+                    'Material ${indice + 1}',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
                 ),
                 IconButton(
                   tooltip: 'Remover material',
@@ -332,7 +421,10 @@ class _OrcamentoFormState extends State<OrcamentoForm> {
               alignment: Alignment.centerRight,
               child: Text(
                 'Total: ${_moeda(_totalLinha(item))}',
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ],
@@ -341,21 +433,29 @@ class _OrcamentoFormState extends State<OrcamentoForm> {
     );
   }
 
-  Widget _linhaTotal(String titulo, double valor, {bool destaque = false}) {
+  Widget _linhaTotal(
+    String titulo,
+    double valor, {
+    bool destaque = false,
+  }) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(titulo,
-            style: TextStyle(
-              fontSize: destaque ? 17 : 15,
-              fontWeight: destaque ? FontWeight.bold : FontWeight.normal,
-            )),
-        Text(_moeda(valor),
-            style: TextStyle(
-              fontSize: destaque ? 20 : 15,
-              fontWeight: FontWeight.bold,
-              color: destaque ? const Color(0xFFE30613) : null,
-            )),
+        Text(
+          titulo,
+          style: TextStyle(
+            fontSize: destaque ? 17 : 15,
+            fontWeight: destaque ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
+        Text(
+          _moeda(valor),
+          style: TextStyle(
+            fontSize: destaque ? 20 : 15,
+            fontWeight: FontWeight.bold,
+            color: destaque ? const Color(0xFFE30613) : null,
+          ),
+        ),
       ],
     );
   }
