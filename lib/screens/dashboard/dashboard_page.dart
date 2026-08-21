@@ -683,37 +683,4 @@ title: Text(
       ),
     );
   }
-
-  Widget _paginaEmBreve({
-    required String titulo,
-    required IconData icon,
-  }) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            icon,
-            size: 82,
-            color: const Color(0xFFE30613),
-          ),
-          const SizedBox(height: 18),
-          Text(
-            titulo,
-            style: const TextStyle(
-              fontSize: 26,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Este módulo será desenvolvido em breve.',
-            style: TextStyle(
-              color: Colors.black54,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
