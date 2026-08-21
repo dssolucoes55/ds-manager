@@ -7,6 +7,7 @@ import '../../services/cliente_service.dart';
 import '../../services/orcamento_pdf_service.dart';
 import '../../services/orcamento_service.dart';
 import '../../services/ordem_servico_service.dart';
+import 'orcamento_detalhe.dart';
 import 'orcamento_form.dart';
 
 class OrcamentosPage extends StatefulWidget {
@@ -40,6 +41,15 @@ class _OrcamentosPageState extends State<OrcamentosPage> {
         ),
       );
     }
+  }
+
+  Future<void> _abrirDetalhes(Orcamento orcamento) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => OrcamentoDetalhe(orcamento: orcamento),
+      ),
+    );
   }
 
   Future<void> _alterarStatus(
@@ -276,6 +286,7 @@ class _OrcamentosPageState extends State<OrcamentosPage> {
                 dataFormatada: _formatarData(orcamento.data),
                 corStatus: _corStatus(orcamento.status),
                 gerandoOs: _gerandoOs,
+                onTap: () => _abrirDetalhes(orcamento),
                 onEditar: () => _abrirFormulario(orcamento),
                 onAprovar: () => _alterarStatus(orcamento, 'Aprovado'),
                 onReprovar: () => _alterarStatus(orcamento, 'Reprovado'),
@@ -333,6 +344,7 @@ class _OrcamentoCard extends StatelessWidget {
   final String dataFormatada;
   final Color corStatus;
   final bool gerandoOs;
+  final VoidCallback onTap;
   final VoidCallback onEditar;
   final VoidCallback onAprovar;
   final VoidCallback onReprovar;
@@ -346,6 +358,7 @@ class _OrcamentoCard extends StatelessWidget {
     required this.dataFormatada,
     required this.corStatus,
     required this.gerandoOs,
+    required this.onTap,
     required this.onEditar,
     required this.onAprovar,
     required this.onReprovar,
@@ -362,9 +375,12 @@ class _OrcamentoCard extends StatelessWidget {
       elevation: 2,
       margin: const EdgeInsets.only(bottom: 14),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Row(
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const CircleAvatar(
@@ -545,6 +561,7 @@ class _OrcamentoCard extends StatelessWidget {
               },
             ),
           ],
+          ),
         ),
       ),
     );
