@@ -665,6 +665,16 @@ class _OrdemServicoDetalheState
                   height: 18,
                 ),
 
+                _secao(
+                  titulo: 'Agendamento',
+                  icon: Icons.calendar_month_outlined,
+                  conteudo: _ordem.dataAgendamento == null
+                      ? 'Não agendado'
+                      : _formatarDataHora(_ordem.dataAgendamento!),
+                ),
+
+                const SizedBox(height: 18),
+
                 _cardMateriais(),
 
                 const SizedBox(
@@ -778,6 +788,14 @@ class _OrdemServicoDetalheState
 
   String _formatarMoeda(double valor) {
     return 'R\$ ${valor.toStringAsFixed(2).replaceAll('.', ',')}';
+  }
+
+  String _formatarDataHora(DateTime data) {
+    final dia = data.day.toString().padLeft(2, '0');
+    final mes = data.month.toString().padLeft(2, '0');
+    final hora = data.hour.toString().padLeft(2, '0');
+    final minuto = data.minute.toString().padLeft(2, '0');
+    return '$dia/$mes/${data.year} às $hora:$minuto';
   }
 
   Widget _cardMateriais() {

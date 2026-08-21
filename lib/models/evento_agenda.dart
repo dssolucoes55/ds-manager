@@ -8,6 +8,7 @@ class EventoAgenda {
   final String tipo;
   final String status;
   final String observacoes;
+  final String? ordemServicoId;
 
   const EventoAgenda({
     required this.id,
@@ -19,6 +20,7 @@ class EventoAgenda {
     required this.tipo,
     required this.status,
     this.observacoes = '',
+    this.ordemServicoId,
   });
 
   EventoAgenda copyWith({
@@ -31,6 +33,7 @@ class EventoAgenda {
     String? tipo,
     String? status,
     String? observacoes,
+    String? ordemServicoId,
   }) {
     return EventoAgenda(
       id: id ?? this.id,
@@ -42,26 +45,23 @@ class EventoAgenda {
       tipo: tipo ?? this.tipo,
       status: status ?? this.status,
       observacoes: observacoes ?? this.observacoes,
+      ordemServicoId: ordemServicoId ?? this.ordemServicoId,
     );
   }
 
-  Map<String, dynamic> toMap() {
-    return {
-      'titulo': titulo,
-      'descricao': descricao,
-      'clienteId': clienteId,
-      'clienteNome': clienteNome,
-      'data': data.millisecondsSinceEpoch,
-      'tipo': tipo,
-      'status': status,
-      'observacoes': observacoes,
-    };
-  }
+  Map<String, dynamic> toMap() => {
+        'titulo': titulo,
+        'descricao': descricao,
+        'clienteId': clienteId,
+        'clienteNome': clienteNome,
+        'data': data.millisecondsSinceEpoch,
+        'tipo': tipo,
+        'status': status,
+        'observacoes': observacoes,
+        'ordemServicoId': ordemServicoId,
+      };
 
-  factory EventoAgenda.fromMap(
-    String id,
-    Map<String, dynamic> map,
-  ) {
+  factory EventoAgenda.fromMap(String id, Map<String, dynamic> map) {
     return EventoAgenda(
       id: id,
       titulo: map['titulo']?.toString() ?? '',
@@ -71,14 +71,13 @@ class EventoAgenda {
       data: DateTime.fromMillisecondsSinceEpoch(
         map['data'] is int
             ? map['data'] as int
-            : int.tryParse(
-                  map['data']?.toString() ?? '',
-                ) ??
+            : int.tryParse(map['data']?.toString() ?? '') ??
                 DateTime.now().millisecondsSinceEpoch,
       ),
       tipo: map['tipo']?.toString() ?? 'Visita',
       status: map['status']?.toString() ?? 'Agendado',
       observacoes: map['observacoes']?.toString() ?? '',
+      ordemServicoId: map['ordemServicoId']?.toString(),
     );
   }
 }

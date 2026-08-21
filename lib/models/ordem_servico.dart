@@ -16,6 +16,7 @@ class OrdemServico {
   final String observacoes;
   final String? orcamentoId;
   final List<ItemMaterialOrcamento> materiais;
+  final DateTime? dataAgendamento;
 
   final List<Uint8List> fotosAntes;
   final List<Uint8List> fotosDepois;
@@ -39,6 +40,7 @@ class OrdemServico {
     this.observacoes = '',
     this.orcamentoId,
     this.materiais = const [],
+    this.dataAgendamento,
     this.fotosAntes = const [],
     this.fotosDepois = const [],
     this.nomeAssinanteTecnico = '',
@@ -61,6 +63,8 @@ class OrdemServico {
     String? observacoes,
     String? orcamentoId,
     List<ItemMaterialOrcamento>? materiais,
+    DateTime? dataAgendamento,
+    bool removerAgendamento = false,
     List<Uint8List>? fotosAntes,
     List<Uint8List>? fotosDepois,
     String? nomeAssinanteTecnico,
@@ -83,6 +87,8 @@ class OrdemServico {
       orcamentoId: orcamentoId ?? this.orcamentoId,
       materiais:
           materiais ?? List<ItemMaterialOrcamento>.from(this.materiais),
+      dataAgendamento:
+          removerAgendamento ? null : dataAgendamento ?? this.dataAgendamento,
       fotosAntes: fotosAntes ?? List<Uint8List>.from(this.fotosAntes),
       fotosDepois: fotosDepois ?? List<Uint8List>.from(this.fotosDepois),
       nomeAssinanteTecnico:
@@ -108,6 +114,7 @@ class OrdemServico {
       'observacoes': observacoes,
       'orcamentoId': orcamentoId,
       'materiais': materiais.map((item) => item.toMap()).toList(),
+      'dataAgendamento': dataAgendamento?.millisecondsSinceEpoch,
       'nomeAssinanteTecnico': nomeAssinanteTecnico,
       'nomeAssinanteCliente': nomeAssinanteCliente,
       'assinaturaTecnico':
@@ -149,6 +156,7 @@ class OrdemServico {
       observacoes: map['observacoes']?.toString() ?? '',
       orcamentoId: map['orcamentoId']?.toString(),
       materiais: materiais,
+      dataAgendamento: _converterData(map['dataAgendamento']),
       fotosAntes: const [],
       fotosDepois: const [],
       nomeAssinanteTecnico:
