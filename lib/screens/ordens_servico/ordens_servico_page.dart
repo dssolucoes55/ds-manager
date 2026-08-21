@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../models/ordem_servico.dart';
+import '../../services/agenda_service.dart';
 import '../../services/ordem_servico_service.dart';
 import 'ordem_servico_detalhe.dart';
 import 'ordem_servico_form.dart';
@@ -82,6 +83,7 @@ class _OrdensServicoPageState extends State<OrdensServicoPage> {
 
     try {
       await OrdemServicoService.atualizar(ordemAtualizada);
+      await AgendaService.sincronizarOrdemServico(ordemAtualizada);
 
       if (!mounted) return;
 
@@ -128,6 +130,7 @@ class _OrdensServicoPageState extends State<OrdensServicoPage> {
 
     try {
       await OrdemServicoService.remover(ordem);
+      await AgendaService.removerPorOrdemServico(ordem.id);
 
       if (!mounted) return;
 

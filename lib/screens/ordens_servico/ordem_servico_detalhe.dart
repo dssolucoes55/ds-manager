@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:printing/printing.dart';
 
 import '../../models/ordem_servico.dart';
+import '../../services/agenda_service.dart';
 import '../../services/ordem_servico_service.dart';
 import '../../services/pdf_service.dart';
 import 'finalizar_ordem_servico_dialog.dart';
@@ -92,6 +93,9 @@ class _OrdemServicoDetalheState
       await OrdemServicoService.atualizar(
         ordemAtualizada,
       );
+      await AgendaService.sincronizarOrdemServico(
+        ordemAtualizada,
+      );
 
       if (!mounted) return;
 
@@ -138,6 +142,9 @@ class _OrdemServicoDetalheState
 
     try {
       await OrdemServicoService.atualizar(
+        ordemFinalizada,
+      );
+      await AgendaService.sincronizarOrdemServico(
         ordemFinalizada,
       );
 

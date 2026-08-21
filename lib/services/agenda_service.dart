@@ -71,7 +71,9 @@ class AgendaService {
           ? 'Concluído'
           : ordem.status.toLowerCase() == 'cancelada'
               ? 'Cancelado'
-              : 'Agendado',
+              : ordem.status.toLowerCase() == 'em andamento'
+                  ? 'Confirmado'
+                  : 'Agendado',
       observacoes: ordem.tecnico.isEmpty
           ? ordem.observacoes
           : 'Técnico: ${ordem.tecnico}\n${ordem.observacoes}',
@@ -85,6 +87,15 @@ class AgendaService {
       for (final duplicado in existentes.docs.skip(1)) {
         await duplicado.reference.delete();
       }
+    }
+  }
+
+  static Future<void> removerPorOrdemServico(String ordemServicoId) async {
+    final eventos = await _agendaRef
+        .where('ordemServicoId', isEqualTo: ordemServicoId)
+        .get();
+    for (final evento in eventos.docs) {
+      await evento.reference.delete();
     }
   }
 }
