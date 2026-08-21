@@ -3,6 +3,34 @@ import 'dart:typed_data';
 
 import 'orcamento.dart';
 
+class HistoricoStatusOrdem {
+  final String statusAnterior;
+  final String novoStatus;
+  final DateTime data;
+
+  const HistoricoStatusOrdem({
+    required this.statusAnterior,
+    required this.novoStatus,
+    required this.data,
+  });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'statusAnterior': statusAnterior,
+      'novoStatus': novoStatus,
+      'data': data.millisecondsSinceEpoch,
+    };
+  }
+
+  factory HistoricoStatusOrdem.fromMap(Map<String, dynamic> map) {
+    return HistoricoStatusOrdem(
+      statusAnterior: map['statusAnterior']?.toString() ?? '',
+      novoStatus: map['novoStatus']?.toString() ?? '',
+      data: OrdemServico.converterData(map['data']) ?? DateTime.now(),
+    );
+  }
+}
+
 class OrdemServico {
   final String id;
   final String numero;
@@ -17,6 +45,7 @@ class OrdemServico {
   final String? orcamentoId;
   final List<ItemMaterialOrcamento> materiais;
   final DateTime? dataAgendamento;
+  final List<HistoricoStatusOrdem> historicoStatus;
 
   final List<Uint8List> fotosAntes;
   final List<Uint8List> fotosDepois;
@@ -41,6 +70,7 @@ class OrdemServico {
     this.orcamentoId,
     this.materiais = const [],
     this.dataAgendamento,
+    this.historicoStatus = const [],
     this.fotosAntes = const [],
     this.fotosDepois = const [],
     this.nomeAssinanteTecnico = '',
@@ -65,6 +95,7 @@ class OrdemServico {
     List<ItemMaterialOrcamento>? materiais,
     DateTime? dataAgendamento,
     bool removerAgendamento = false,
+    List<HistoricoStatusOrdem>? historicoStatus,
     List<Uint8List>? fotosAntes,
     List<Uint8List>? fotosDepois,
     String? nomeAssinanteTecnico,
@@ -89,6 +120,9 @@ class OrdemServico {
           materiais ?? List<ItemMaterialOrcamento>.from(this.materiais),
       dataAgendamento:
           removerAgendamento ? null : dataAgendamento ?? this.dataAgendamento,
+      historicoStatus:
+          historicoStatus ??
+          List<HistoricoStatusOrdem>.from(this.historicoStatus),
       fotosAntes: fotosAntes ?? List<Uint8List>.from(this.fotosAntes),
       fotosDepois: fotosDepois ?? List<Uint8List>.from(this.fotosDepois),
       nomeAssinanteTecnico:
@@ -98,6 +132,27 @@ class OrdemServico {
       assinaturaTecnico: assinaturaTecnico ?? this.assinaturaTecnico,
       assinaturaCliente: assinaturaCliente ?? this.assinaturaCliente,
       dataConclusao: dataConclusao ?? this.dataConclusao,
+    );
+  }
+
+  OrdemServico alterarStatus(String novoStatus) {
+    if (status.toLowerCase() == novoStatus.toLowerCase()) {
+      return this;
+    }
+
+    final novoHistorico =
+        List<HistoricoStatusOrdem>.from(historicoStatus)
+          ..add(
+            HistoricoStatusOrdem(
+              statusAnterior: status,
+              novoStatus: novoStatus,
+              data: DateTime.now(),
+            ),
+          );
+
+    return copyWith(
+      status: novoStatus,
+      historicoStatus: novoHistorico,
     );
   }
 
@@ -115,6 +170,8 @@ class OrdemServico {
       'orcamentoId': orcamentoId,
       'materiais': materiais.map((item) => item.toMap()).toList(),
       'dataAgendamento': dataAgendamento?.millisecondsSinceEpoch,
+      'historicoStatus':
+          historicoStatus.map((registro) => registro.toMap()).toList(),
       'nomeAssinanteTecnico': nomeAssinanteTecnico,
       'nomeAssinanteCliente': nomeAssinanteCliente,
       'assinaturaTecnico':
@@ -127,16 +184,30 @@ class OrdemServico {
 
   factory OrdemServico.fromMap(String id, Map<String, dynamic> map) {
     final materiaisMap = map['materiais'];
-    final materiais = materiaisMap is List
-        ? materiaisMap
-            .whereType<Map>()
-            .map(
-              (item) => ItemMaterialOrcamento.fromMap(
-                Map<String, dynamic>.from(item),
-              ),
-            )
-            .toList()
-        : <ItemMaterialOrcamento>[];
+    final materiais =
+        materiaisMap is List
+            ? materiaisMap
+                .whereType<Map>()
+                .map(
+                  (item) => ItemMaterialOrcamento.fromMap(
+                    Map<String, dynamic>.from(item),
+                  ),
+                )
+                .toList()
+            : <ItemMaterialOrcamento>[];
+
+    final historicoMap = map['historicoStatus'];
+    final historico =
+        historicoMap is List
+            ? historicoMap
+                .whereType<Map>()
+                .map(
+                  (item) => HistoricoStatusOrdem.fromMap(
+                    Map<String, dynamic>.from(item),
+                  ),
+                )
+                .toList()
+            : <HistoricoStatusOrdem>[];
 
     return OrdemServico(
       id: id,
@@ -147,16 +218,14 @@ class OrdemServico {
       descricao: map['descricao']?.toString() ?? '',
       prioridade: map['prioridade']?.toString() ?? 'Normal',
       status: map['status']?.toString() ?? 'Aberta',
-      data: DateTime.fromMillisecondsSinceEpoch(
-        map['data'] is int
-            ? map['data'] as int
-            : int.tryParse(map['data']?.toString() ?? '') ??
-                DateTime.now().millisecondsSinceEpoch,
-      ),
+      data:
+          converterData(map['data']) ??
+          DateTime.now(),
       observacoes: map['observacoes']?.toString() ?? '',
       orcamentoId: map['orcamentoId']?.toString(),
       materiais: materiais,
-      dataAgendamento: _converterData(map['dataAgendamento']),
+      dataAgendamento: converterData(map['dataAgendamento']),
+      historicoStatus: historico,
       fotosAntes: const [],
       fotosDepois: const [],
       nomeAssinanteTecnico:
@@ -165,12 +234,13 @@ class OrdemServico {
           map['nomeAssinanteCliente']?.toString() ?? '',
       assinaturaTecnico: _decodificarAssinatura(map['assinaturaTecnico']),
       assinaturaCliente: _decodificarAssinatura(map['assinaturaCliente']),
-      dataConclusao: _converterData(map['dataConclusao']),
+      dataConclusao: converterData(map['dataConclusao']),
     );
   }
 
   static Uint8List? _decodificarAssinatura(dynamic valor) {
     if (valor == null || valor.toString().isEmpty) return null;
+
     try {
       return base64Decode(valor.toString());
     } catch (_) {
@@ -178,11 +248,14 @@ class OrdemServico {
     }
   }
 
-  static DateTime? _converterData(dynamic valor) {
+  static DateTime? converterData(dynamic valor) {
     if (valor == null) return null;
+
     final milissegundos =
         valor is int ? valor : int.tryParse(valor.toString());
+
     if (milissegundos == null) return null;
+
     return DateTime.fromMillisecondsSinceEpoch(milissegundos);
   }
 }

@@ -79,7 +79,16 @@ class _OrdensServicoPageState extends State<OrdensServicoPage> {
     OrdemServico ordem,
     String novoStatus,
   ) async {
-    final ordemAtualizada = ordem.copyWith(status: novoStatus);
+    if (ordem.status.toLowerCase() == novoStatus.toLowerCase()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('A OS já está com o status $novoStatus.'),
+        ),
+      );
+      return;
+    }
+
+    final ordemAtualizada = ordem.alterarStatus(novoStatus);
 
     try {
       await OrdemServicoService.atualizar(ordemAtualizada);
@@ -161,6 +170,8 @@ class _OrdensServicoPageState extends State<OrdensServicoPage> {
     switch (status.toLowerCase()) {
       case 'em andamento':
         return Colors.orange;
+      case 'aguardando material':
+        return Colors.deepPurple;
       case 'concluída':
       case 'concluida':
         return Colors.green;
@@ -488,6 +499,9 @@ class _OrdemServicoCard extends StatelessWidget {
                     case 'andamento':
                       onAlterarStatus('Em andamento');
                       break;
+                    case 'aguardando_material':
+                      onAlterarStatus('Aguardando material');
+                      break;
                     case 'concluida':
                       onAlterarStatus('Concluída');
                       break;
@@ -522,6 +536,10 @@ class _OrdemServicoCard extends StatelessWidget {
                     PopupMenuItem(
                       value: 'andamento',
                       child: Text('Marcar em andamento'),
+                    ),
+                    PopupMenuItem(
+                      value: 'aguardando_material',
+                      child: Text('Aguardando material'),
                     ),
                     PopupMenuItem(
                       value: 'concluida',

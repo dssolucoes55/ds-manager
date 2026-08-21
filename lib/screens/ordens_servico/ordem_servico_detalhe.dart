@@ -53,6 +53,9 @@ class _OrdemServicoDetalheState
       case 'em andamento':
         return Colors.orange;
 
+      case 'aguardando material':
+        return Colors.deepPurple;
+
       case 'concluída':
       case 'concluida':
         return Colors.green;
@@ -84,10 +87,19 @@ class _OrdemServicoDetalheState
   Future<void> _alterarStatus(
     String novoStatus,
   ) async {
+    if (_ordem.status.toLowerCase() == novoStatus.toLowerCase()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'A OS já está com o status $novoStatus.',
+          ),
+        ),
+      );
+      return;
+    }
+
     final ordemAtualizada =
-        _ordem.copyWith(
-      status: novoStatus,
-    );
+        _ordem.alterarStatus(novoStatus);
 
     try {
       await OrdemServicoService.atualizar(
@@ -140,18 +152,28 @@ class _OrdemServicoDetalheState
       return;
     }
 
+    final ordemComHistorico =
+        _ordem.status.toLowerCase() ==
+                ordemFinalizada.status.toLowerCase()
+            ? ordemFinalizada
+            : ordemFinalizada.copyWith(
+                historicoStatus: _ordem
+                    .alterarStatus(ordemFinalizada.status)
+                    .historicoStatus,
+              );
+
     try {
       await OrdemServicoService.atualizar(
-        ordemFinalizada,
+        ordemComHistorico,
       );
       await AgendaService.sincronizarOrdemServico(
-        ordemFinalizada,
+        ordemComHistorico,
       );
 
       if (!mounted) return;
 
       setState(() {
-        _ordem = ordemFinalizada;
+        _ordem = ordemComHistorico;
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -426,6 +448,13 @@ class _OrdemServicoDetalheState
               ),
 
               PopupMenuItem(
+                value: 'Aguardando material',
+                child: Text(
+                  'Aguardando material',
+                ),
+              ),
+
+              PopupMenuItem(
                 value: 'Concluída',
                 child: Text(
                   'Marcar como concluída',
@@ -682,6 +711,10 @@ class _OrdemServicoDetalheState
 
                 const SizedBox(height: 18),
 
+                _cardHistoricoStatus(),
+
+                const SizedBox(height: 18),
+
                 _cardMateriais(),
 
                 const SizedBox(
@@ -803,6 +836,95 @@ class _OrdemServicoDetalheState
     final hora = data.hour.toString().padLeft(2, '0');
     final minuto = data.minute.toString().padLeft(2, '0');
     return '$dia/$mes/${data.year} às $hora:$minuto';
+  }
+
+  Widget _cardHistoricoStatus() {
+    final historico = _ordem.historicoStatus.reversed.toList();
+
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(
+                  Icons.history,
+                  color: Color(0xFFE30613),
+                ),
+                SizedBox(width: 10),
+                Text(
+                  'Histórico de status',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            if (historico.isEmpty)
+              const Text(
+                'Nenhuma alteração de status registrada.',
+                style: TextStyle(color: Colors.black54),
+              )
+            else
+              ...List.generate(historico.length, (indice) {
+                final registro = historico[indice];
+                final cor = _corStatus(registro.novoStatus);
+
+                return Padding(
+                  padding: EdgeInsets.only(
+                    bottom: indice == historico.length - 1 ? 0 : 16,
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 12,
+                        height: 12,
+                        margin: const EdgeInsets.only(top: 5),
+                        decoration: BoxDecoration(
+                          color: cor,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${registro.statusAnterior} → '
+                              '${registro.novoStatus}',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              _formatarDataHora(registro.data),
+                              style: const TextStyle(
+                                color: Colors.black54,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _cardMateriais() {
